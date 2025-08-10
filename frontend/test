@@ -1,0 +1,144 @@
+<template>
+  <div class="app">
+    <h1>Marvel Comics — Series & Issues</h1>
+
+    <!-- Top-level: series search -->
+    <form @submit.prevent="searchSeries" class="search-form" v-if="mode === 'series'">
+      <label>
+        Series Title:
+        <input v-model="seriesQuery" placeholder="e.g. Astonishing X-Men" />
+      </label>
+
+      <button type="submit" :disabled="loading">
+        {{ loading ? "Searching..." : "Search Series" }}
+      </button>
+    </form>
+
+    <!-- Series state -->
+    <div v-if="mode === 'series'">
+      <div v-if="loading" class="loading">Loading series...</div>
+      <div v-if="error" class="error">{{ error }}</div>
+      <div v-if="!loading && !seriesList.length && !error" class="no-results">
+        No series found.
+      </div>
+
+      <div v-if="seriesList.length" class="series-grid">
+        <div
+          class="series-card"
+          v-for="s in seriesList"
+          :key="s.title"
+          @click="openSeries(s)"
+        >
+          <img :src="s.thumb" alt="" />
+          <div class="series-meta">
+            <h3>{{ s.title }}</h3>
+            <p>
+              <strong>Issues:</strong> {{ s.count }}
+              <span v-if="s.years"> • <strong>Years:</strong> {{ s.years }}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Series detail: issues page -->
+    <div v-if="mode === 'issues'" class="series-page">
+      <div class="series-header">
+        <button class="back" @click="backToSeries">← Back to Series</button>
+        <div class="title-stack">
+          <h2>{{ selectedSeriesTitle }}</h2>
+          <p class="subtitle">Browse issues, filter by year, and toggle variants.</p>
+        </div>
+      </div>
+
+      <!-- Filters for issues within the selected series -->
+      <form @submit.prevent="loadSeriesIssues" class="filter-bar">
+        <label>
+          Year:
+          <input type="number" v-model.number="filters.year" placeholder="e.g. 2013" />
+        </label>
+
+        <label>
+          Dataset:
+          <select v-model="filters.dataset">
+            <option value="original">Original</option>
+            <option value="variant">Variant</option>
+            <option value="all">All</option>
+          </select>
+        </label>
+
+        <button type="submit" :disabled="loading">
+          {{ loading ? "Filtering..." : "Apply" }}
+        </button>
+      </form>
+
+      <div v-if="loading" class="loading">Loading issues...</div>
+      <div v-if="error" class="error">{{ error }}</div>
+      <div v-if="!loading && !issues.length && !error" class="no-results">
+        No issues found for this series.
+      </div>
+
+      <!-- Covers grid -->
+      <div v-if="issues.length" class="issues-grid">
+        <div
+          class="issue-card"
+          v-for="issue in pagedIssues"
+          :key="issue.issue_id"
+          @click="selectIssue(issue)"
+          :class="{ selected: selectedIssue && selectedIssue.issue_id === issue.issue_id }"
+        >
+          <img :src="issue.image_url" alt="Cover" />
+          <div class="issue-meta">
+            <strong>#{{ issue.issue_number }}</strong>
+            <div class="small">
+              {{ formatDate(issue.release_date) }}
+            </div>
+            <div class="chip" :class="issue.is_variant ? 'variant' : 'original'">
+              {{ issue.is_variant ? "Variant" : "Original" }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination for issues -->
+      <div v-if="issues.length > pageSize" class="pagination">
+        <button @click="prevPage" :disabled="currentPage === 1">&lt; Prev</button>
+        <span>Page {{ currentPage }} / {{ totalPages }}</span>
+        <button @click="nextPage" :disabled="currentPage === totalPages">Next &gt;</button>
+      </div>
+
+      <!-- Issue details (re-use your existing section) -->
+      <div v-if="selectedIssue" class="issue-details">
+        <h2>{{ selectedIssue.series_title }} #{{ selectedIssue.issue_number }}</h2>
+        <img :src="selectedIssue.image_url" alt="Cover" width="220" />
+        <p><strong>Title:</strong> {{ selectedIssue.title }}</p>
+        <p><strong>Release Date:</strong> {{ formatDate(selectedIssue.release_date) }}</p>
+        <p><strong>Is Variant:</strong> {{ selectedIssue.is_variant ? "Yes" : "No" }}</p>
+        <p><strong>Summary:</strong> {{ selectedIssue.summary || "No summary available." }}</p>
+
+        <!-- Show variants if original -->
+        <div v-if="selectedIssue.dataset === 'original' && variants.length" class="variants-section">
+          <h3>Variants</h3>
+          <ul class="variant-list">
+            <li
+              v-for="variant in variants"
+              :key="variant.issue_id"
+              @click="selectIssue(variant)"
+            >
+              Variant #{{ variant.issue_number }} — {{ formatDate(variant.release_date) }}
+            </li>
+          </ul>
+        </div>
+
+        <!-- Show original if variant -->
+        <div v-if="selectedIssue.dataset === 'variant' && original" class="original-section">
+          <h3>Original Issue</h3>
+          <p>
+            {{ original.series_title }} #{{ original.issue_number }} — {{ formatDate(original.release_date) }}
+          </p>
+          <button @click="selectIssue(original)">View Original</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

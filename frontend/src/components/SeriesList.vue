@@ -3,14 +3,12 @@
     <h1>Marvel Comics — Series & Issues</h1>
 
     <!-- Search + Filter Bar -->
-    <form @submit.prevent="searchSeries" class="search-form">
+    <form @submit.prevent="applyFilters" class="search-form">
       <div class="filters-row main-search-row">
         <label class="search-title-label">
           <span class="label-text">Series Title:</span>
           <input v-model="seriesQuery" placeholder="e.g. Astonishing X-Men" />
         </label>
-
-
 
         <button type="submit" :disabled="loading" class="search-btn">
           {{ loading ? "Searching..." : "Search" }}
@@ -138,46 +136,103 @@ export default {
     return {
       loading: false,
       error: null,
-      currentPage: 1,
       pageSize: 20,
 
       showAdvancedFilters: false, 
-
-      // Filters
-      filterStartYear: 1900,
-      filterEndYear: new Date().getFullYear(),
-      filterMinIssues: null,
-      filterUnlimited: false,
-      filterOneShot: false,
-      filterComicFormats: true,
-      sortBy: "title",
     };
   },
   mounted() {
     this.searchSeries();
   },
   computed: {
-    seriesQuery: {
-      get() {
-        return seriesState.query;
-      },
-      set(val) {
-        seriesState.query = val;
-      },
+   seriesQuery: {
+    get() {
+      return seriesState.query;
     },
-    seriesList: {
-      get() {
-        return seriesState.list;
-      },
-      set(val) {
-        seriesState.list = val;
-      },
+    set(val) {
+      seriesState.query = val;
     },
-    // Apply filters and sorting client-side
+  },
+  seriesList: {
+    get() {
+      return seriesState.list;
+    },
+    set(val) {
+      seriesState.list = val;
+    },
+  },
+
+  filterStartYear: {
+    get() {
+      return seriesState.filterStartYear;
+    },
+    set(val) {
+      seriesState.filterStartYear = val;
+    },
+  },
+  filterEndYear: {
+    get() {
+      return seriesState.filterEndYear;
+    },
+    set(val) {
+      seriesState.filterEndYear = val;
+    },
+  },
+  filterMinIssues: {
+    get() {
+      return seriesState.filterMinIssues;
+    },
+    set(val) {
+      seriesState.filterMinIssues = val;
+    },
+  },
+  filterUnlimited: {
+    get() {
+      return seriesState.filterUnlimited;
+    },
+    set(val) {
+      seriesState.filterUnlimited = val;
+    },
+  },
+  filterOneShot: {
+    get() {
+      return seriesState.filterOneShot;
+    },
+    set(val) {
+      seriesState.filterOneShot = val;
+    },
+  },
+  filterComicFormats: {
+    get() {
+      return seriesState.filterComicFormats;
+    },
+    set(val) {
+      seriesState.filterComicFormats = val;
+    },
+  },
+  sortBy: {
+    get() {
+      return seriesState.sortBy;
+    },
+    set(val) {
+      seriesState.sortBy = val;
+    },
+  },
+  currentPage: {
+    get() {
+      return seriesState.currentPage;
+    },
+    set(val) {
+      seriesState.currentPage = val;
+    },
+  },
     filteredSeries() {
       let list = [...this.seriesList];
 
-      // Year range filter
+      if (this.seriesQuery && this.seriesQuery.trim() !== "") {
+        const query = this.seriesQuery.toLowerCase();
+        list = list.filter((s) => s.title.toLowerCase().includes(query));
+      }
       if (this.filterStartYear) {
         list = list.filter((s) => {
           const minYear = parseInt(s.years?.split("–")[0]) || null;
@@ -352,6 +407,11 @@ export default {
     if (page >= 1 && page <= this.totalPages) {
       this.currentPage = page;
     }
+  },
+  applyFilters() {
+    this.currentPage = 1;
+    this.error = null;
+    this.searchSeries();
   },
   },
 };

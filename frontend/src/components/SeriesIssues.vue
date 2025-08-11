@@ -1,31 +1,62 @@
 <template>
   <div class="app series-page">
+
     <div class="series-header">
-      <router-link to="/series" class="back">← Back to Series</router-link>
-      <div class="title-stack">
-        <h2>{{ issues.length ? issues[0].series_title : `Series ID: ${seriesId}` }}</h2>
-        <p class="subtitle">Browse issues, filter by year, and toggle variants.</p>
-      </div>
+          <router-link to="/series" class="back">← Back to Series</router-link>
+
+    <div
+      v-if="issues.length && issues[0].image_url"
+      class="fullscreen-cover-bg"
+      :style="{ backgroundImage: `url(${issues[0].image_url})` }"
+    ></div>
+
+    <div class="title-stack">
+      <h2>{{ issues.length ? issues[0].series_title : `Series ID: ${seriesId}` }}</h2>
+      <p class="subtitle">Browse issues, filter by year, and toggle variants.</p>
     </div>
+  </div>
 
-    <form @submit.prevent="loadSeriesIssues" class="filter-bar">
-      <label>
-        Year:
-        <input type="number" v-model.number="filters.year" placeholder="e.g. 2013" />
-      </label>
 
-      <label>
-        Dataset:
-        <select v-model="filters.dataset">
-          <option value="original">Original</option>
-          <option value="variant">Variant</option>
-          <option value="all">All</option>
-        </select>
-      </label>
+    <form @submit.prevent="searchIssues" class="search-form">
+      <!-- MAIN SEARCH ROW -->
+      <div class="filters-row main-search-row">
+        <label class="search-title-label">
+          <span class="label-text">Issue Title:</span>
+          <input v-model="issueQuery" placeholder="e.g. Spider-Man #1" />
+        </label>
 
-      <button type="submit" :disabled="loading">
-        {{ loading ? "Filtering..." : "Apply" }}
-      </button>
+        <button type="submit" :disabled="loading" class="search-btn">
+          {{ loading ? "Searching..." : "Search" }}
+        </button>
+
+        <button
+          type="button"
+          @click="showAdvancedFilters = !showAdvancedFilters"
+          class="toggle-advanced-btn"
+        >
+          {{ showAdvancedFilters ? "Hide Advanced Filters" : "Show Advanced Filters" }}
+        </button>
+      </div>
+
+      <!-- ADVANCED FILTERS BELOW -->
+      <transition name="fade-slide">
+        <div v-if="showAdvancedFilters" class="filters-row advanced-filters">
+          <!-- <label>
+            Year:
+            <input type="number" v-model.number="filterYear" min="1900" />
+          </label> -->
+
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="includeVariants" />
+            Include Variants
+          </label>
+
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="filterMarvelUnlimited" />
+            Marvel Unlimited
+          </label>
+        </div>
+      </transition>
     </form>
 
     <div v-if="loading" class="loading">Loading issues...</div>
@@ -60,11 +91,10 @@
             <div class="chip" :class="issue.is_variant ? 'variant' : 'original'">
               {{ issue.is_variant ? "Variant" : "Original" }}
             </div>
-            <div v-if="!issue.is_variant && issue.has_variants" class="chip variant-available">
+            <div v-if="!issue.is_variant && hasVariants(issue)" class="chip variant-available">
               Variant Available
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -74,7 +104,7 @@
 
       <span v-for="page in pageNumbers" :key="page">
         <button
-          v-if="page !== '...'"
+          v-if="page !== '...' "
           @click="goToPage(page)"
           :class="{ active: currentPage === page }"
         >
@@ -97,9 +127,10 @@ export default {
     return {
       filters: {
         year: null,
-        dataset: "original",
+        dataset: "all",  
       },
       issues: [],
+      allIssues: [],
       selectedIssue: null,
       variants: [],
       original: null,
@@ -107,6 +138,12 @@ export default {
       error: null,
       currentPage: 1,
       pageSize: 20,
+
+      issueQuery: "",
+      showAdvancedFilters: false,
+      filterYear: null,
+      includeVariants: false,
+      filterMarvelUnlimited: false,
     };
   },
   computed: {
@@ -118,33 +155,33 @@ export default {
       return this.issues.slice(start, start + this.pageSize);
     },
     pageNumbers() {
-    const total = this.totalPages;
-    const current = this.currentPage;
-    const delta = 2;
-    let range = [];
-    let rangeWithDots = [];
-    let l;
+      const total = this.totalPages;
+      const current = this.currentPage;
+      const delta = 2;
+      let range = [];
+      let rangeWithDots = [];
+      let l;
 
-    for (let i = 1; i <= total; i++) {
-      if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
-        range.push(i);
-      }
-    }
-
-    for (let i of range) {
-      if (l) {
-        if (i - l === 2) {
-          rangeWithDots.push(l + 1);
-        } else if (i - l > 2) {
-          rangeWithDots.push("...");
+      for (let i = 1; i <= total; i++) {
+        if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+          range.push(i);
         }
       }
-      rangeWithDots.push(i);
-      l = i;
-    }
 
-    return rangeWithDots;
-  }
+      for (let i of range) {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (i - l > 2) {
+            rangeWithDots.push("...");
+          }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      }
+
+      return rangeWithDots;
+    },
   },
   watch: {
     seriesId: {
@@ -153,29 +190,37 @@ export default {
         this.loadSeriesIssues();
       },
     },
+    includeVariants() {
+      this.filterIssuesByVariantCheckbox();
+    },
+    filterYear() {
+      this.searchIssues();
+    },
+    filterMarvelUnlimited() {
+      this.searchIssues();
+    },
   },
   methods: {
     goToIssue(issue) {
-    if (!issue) return;
+      if (!issue) return;
 
-    if (issue.is_variant && issue.original_issue_id) {
-      this.$router.push({
-        name: "IssueDetail",
-        params: {
-          originalIssueId: issue.original_issue_id,
-          variantIssueId: issue.issue_id,
-        },
-      });
-    } else {
-      // original issue
-      this.$router.push({
-        name: "IssueDetail",
-        params: {
-          originalIssueId: issue.issue_id,
-        },
-      });
-    }
-  },
+      if (issue.is_variant && issue.original_issue_id) {
+        this.$router.push({
+          name: "IssueDetail",
+          params: {
+            originalIssueId: issue.original_issue_id,
+            variantIssueId: issue.issue_id,
+          },
+        });
+      } else {
+        this.$router.push({
+          name: "IssueDetail",
+          params: {
+            originalIssueId: issue.issue_id,
+          },
+        });
+      }
+    },
     async loadSeriesIssues() {
       if (!this.seriesId) return;
       this.loading = true;
@@ -185,32 +230,14 @@ export default {
       this.original = null;
 
       try {
-        const params = { series_id: Number(this.seriesId) };
-        if (this.filters.year) params.year = this.filters.year;
-        params.dataset = this.filters.dataset; // can be "original", "variant", or "all"
+        const params = { series_id: Number(this.seriesId), dataset: "all" };
+        if (this.filterYear) params.year = this.filterYear;
+        if (this.filterMarvelUnlimited) params.marvel_unlimited = true;
+        if (this.issueQuery) params.title = this.issueQuery;
 
         const res = await axios.get("http://127.0.0.1:8000/issues/", { params });
         let issues = res.data || [];
-
-        // If dataset === "original", add has_variants flags by fetching variants count for each original issue
-        if (this.filters.dataset === "original" || this.filters.dataset === "all") {
-          // Build a map original_issue_id -> variant count for has_variants flag
-          const originalIds = issues
-            .filter(issue => !issue.is_variant)
-            .map(issue => issue.issue_id);
-
-          if (originalIds.length) {
-            // Fetch variants for all originals in one go (optional optimization)
-            // Or do variant fetching on demand per issue to keep simple
-            // Here, let's just mark has_variants false for simplicity
-            issues = issues.map(issue => ({
-              ...issue,
-              has_variants: false // or true if you want to implement checking here
-            }));
-          }
-        }
-
-        // Sort by issue_number
+        
         issues.sort((a, b) => {
           const na = Number(a.issue_number);
           const nb = Number(b.issue_number);
@@ -218,7 +245,8 @@ export default {
           return String(a.issue_number).localeCompare(String(b.issue_number));
         });
 
-        this.issues = issues;
+        this.allIssues = issues;
+        this.filterIssuesByVariantCheckbox();
         this.currentPage = 1;
       } catch (e) {
         console.error(e);
@@ -226,30 +254,20 @@ export default {
       } finally {
         this.loading = false;
       }
-      },
+    },
+    async searchIssues() {
+      await this.loadSeriesIssues();
+    },
+    filterIssuesByVariantCheckbox() {
+      if (this.includeVariants) {
+        this.issues = this.allIssues;
+      } else {
+        this.issues = this.allIssues.filter(issue => !issue.is_variant);
+      }
+    },
     formatDate(dateStr) {
       if (!dateStr) return "Unknown";
       return new Date(dateStr).toLocaleDateString();
-    },
-    async selectIssue(issue) {
-      this.selectedIssue = issue;
-      if (issue.dataset === "original") {
-        try {
-          const res = await axios.get(`http://127.0.0.1:8000/issues/${issue.issue_id}/variants`);
-          this.variants = res.data || [];
-        } catch {
-          this.variants = [];
-        }
-        this.original = null;
-      } else if (issue.dataset === "variant") {
-        try {
-          const res = await axios.get(`http://127.0.0.1:8000/issues/${issue.issue_id}/original`);
-          this.original = res.data || null;
-        } catch {
-          this.original = null;
-        }
-        this.variants = [];
-      }
     },
     nextPage() {
       if (this.currentPage < this.totalPages) {
@@ -262,115 +280,259 @@ export default {
       }
     },
     goToPage(page) {
-    if (page >= 1 && page <= this.totalPages) {
-      this.currentPage = page;
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page;
+      }
+    },
+    hasVariants(issue) {
+      let variants = issue.variant_covers;
+
+      if (typeof variants === 'string') {
+        try {
+          variants = JSON.parse(variants);
+        } catch (e) {
+          console.warn('Failed to parse variant_covers for issue', issue.issue_id, e);
+          variants = [];
+        }
+      }
+
+      return Array.isArray(variants) && variants.length > 0;
     }
-  },
+
   },
 };
 </script>
 
 <style scoped>
-.app {
-  max-width: auto;
-  margin: 20px auto;
-  padding: 20px;
-  font-family: "Roboto Condensed", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  color: #333;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
+.back-wrapper {
+  max-width: 980px;
+  margin: 20px auto 8px auto;
+  padding: 0 20px;
 }
 
-h1,
-h2 {
-  font-family: "Roboto Condensed", sans-serif;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 1.5rem;
-}
+.series-header {
+  position: relative;
+  max-width: 1980px;  /* or your preferred width */
+  margin: 0 auto 2rem auto;
+  padding: 40px 20px;
+  border-radius: 8px;
+  color: white;
+  overflow: hidden;
+  background-color: transparent;
 
-.search-form,
-.filter-bar {
-  font-family: "Roboto Condensed", sans-serif;
-  font-weight: 600;
   display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 1.2rem;
-  justify-content: center;
+  justify-content: center; /* center horizontally */
+  align-items: center;     /* center vertically */
+  min-height: 160px;       /* enough height */
 }
 
-.search-form label,
-.filter-bar label {
-  font-family: "Roboto Condensed", sans-serif;
-  font-weight: 600;
-  display: flex;
-  flex-direction: column;
-  color: #555;
-  min-width: 180px;
-}
-
-.search-form input,
-.filter-bar input,
-.filter-bar select {
-  margin-top: 6px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-family: "Roboto Condensed", sans-serif;
-  font-weight: 400;
-  font-size: 1rem;
-}
-
-button[type="submit"],
 .back {
-  font-family: "Roboto Condensed", sans-serif;
-  font-weight: 400;
+  position: absolute;
+  top: 20px;
+  left: 20px;
   padding: 8px 16px;
   font-size: 1rem;
   border-radius: 8px;
-  border: none;
   background-color: #007acc;
   color: white;
+  text-decoration: none;
   cursor: pointer;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0, 122, 204, 0.8);
+  transition: background-color 0.2s ease;
+  z-index: 10;  /* above background */
+  white-space: nowrap;
 }
 
-button[type="submit"]:disabled {
+.back:hover {
+  background-color: #005fa3;
+}
+
+.title-stack {
+  position: relative;
+  z-index: 10;
+  min-width: 250px;
+  text-align: center;
+}
+
+.fullscreen-cover-bg {
+  position: absolute; 
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover; /* this makes the image cover whole area */
+  filter: blur(10px);
+  opacity: 0.3;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 8px; 
+}
+
+
+.cover-bg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.15);  z-index: 1;
+  pointer-events: none;
+    background: transparent !important;
+
+}
+
+.title-stack {
+  flex-grow: 1; /* take all remaining space */
+  text-align: center;
+  position: relative;
+  z-index: 10;
+  min-width: 250px;
+}
+
+.title-stack h2 {
+  margin: 0 0 8px 0;
+  font-weight: 800;
+  font-family: "Roboto Condensed", sans-serif;
+  font-size: 3rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: white; 
+}
+
+.title-stack .subtitle {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #ddd;
+}
+
+
+.search-form {
+  background: #fff;
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+  max-width: 980px;
+  margin: 0 auto 2rem auto;
+  font-weight: 600;
+}
+
+.filters-row.main-search-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.filters-row.advanced-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #ddd;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.search-title-label {
+  position: relative;
+  width: 220px;
+  margin: 0;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-title-label .label-text {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #444;
+  user-select: none;
+}
+
+.search-title-label input {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+}
+
+.search-btn,
+.toggle-advanced-btn {
+  padding: 8px 16px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background-color: #007acc;
+  color: white;
+  transition: background-color 0.3s ease;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-btn:disabled {
   background-color: #7abaff;
   cursor: not-allowed;
 }
 
-.loading,
-.error,
-.no-results {
-  font-family: "Roboto Condensed", sans-serif;
-  font-weight: 600;
-  text-align: center;
-  margin: 1rem 0;
+.search-btn:hover:not(:disabled),
+.toggle-advanced-btn:hover {
+  background-color: #005fa3;
 }
 
-.error {
-  color: #d9534f;
-}
-
-.series-header {
+.search-form label {
   display: flex;
   flex-direction: column;
+  min-width: 180px;
+  font-weight: 600;
+  color: #444;
+}
+
+.search-form input[type="text"],
+.search-form input[type="number"],
+.search-form select {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  width: 100%;
+  max-width: 350px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.search-form input[type="checkbox"] {
+  margin-right: 6px;
+  align-self: center;
+}
+
+.search-form label input[type="checkbox"] {
+  width: auto;
+  margin-top: 0;
+}
+.checkbox-label {
+  flex-direction: row !important;
   align-items: center;
+  min-width: auto;
 }
 
-.back {
-  align-self: flex-start;
-  margin-bottom: 0.5rem;  
-}
-.chips-row {
-  display: flex;
-  gap: 6px; 
-  flex-wrap: wrap; 
-}
-
-/* Issues grid */
 .issues-grid {
   display: grid;
   grid-template-columns: repeat(5, 237px);
@@ -384,7 +546,7 @@ button[type="submit"]:disabled {
   flex-direction: column;
   align-items: center;
   cursor: pointer;
-  background: none; 
+  background: none;
   border: none;
   box-shadow: none;
   transition: transform 0.1s ease, box-shadow 0.2s ease;
@@ -400,7 +562,7 @@ button[type="submit"]:disabled {
   height: 355px;
   object-fit: cover;
   display: block;
-  background: none; 
+  background: none;
 }
 
 .issue-meta {
@@ -412,9 +574,9 @@ button[type="submit"]:disabled {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  padding-left: 8px; 
+  padding-left: 8px;
   padding-right: 8px;
-  width: calc(100% - 16px); 
+  width: calc(100% - 16px);
 }
 
 .issue-meta strong {
@@ -432,7 +594,6 @@ button[type="submit"]:disabled {
   margin: 0;
 }
 
-/* Title row with Marvel Unlimited logo */
 .title-row {
   display: flex;
   align-items: center;
@@ -508,5 +669,16 @@ button[type="submit"]:disabled {
   border-color: #ccc;
   color: #ccc;
   cursor: not-allowed;
+}
+.loading,
+.error,
+.no-results {
+  text-align: center;
+  margin: 1rem 0;
+  font-weight: 600;
+  width: 100%;
+  max-width: 980px;
+  margin-left: auto;
+  margin-right: auto;
 }
 </style>

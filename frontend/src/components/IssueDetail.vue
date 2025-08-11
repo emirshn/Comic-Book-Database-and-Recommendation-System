@@ -123,44 +123,62 @@
           <!-- From Same Creators -->
           <div v-if="recommendedSeries.sameCreators && recommendedSeries.sameCreators.length">
             <h4>From Same Creators</h4>
-            <div class="recommendation-list">
+            <div
+              class="recommendation-list"
+              @mousedown="startDragRec"
+              @mouseup="stopDragRec"
+              @mouseleave="stopDragRec"
+              @mousemove="onDragRec"
+            >
               <div
                 v-for="rec in recommendedSeries.sameCreators"
                 :key="rec.series_id"
                 class="recommendation-card"
-                @click="$router.push({ path: `/series/${rec.series_id}` })"
+                @click="handleRecClick(rec, $event)"
               >
                 <img :src="rec.image_url" alt="Series cover" />
                 <p>{{ rec.title }}</p>
               </div>
             </div>
           </div>
-
+          <div class="partial-divider"></div>
           <!-- From Summary Model -->
           <div v-if="recommendedSeries.fromSummary && recommendedSeries.fromSummary.length">
             <h4>Similar by Summary</h4>
-            <div class="recommendation-list">
+            <div
+              class="recommendation-list"
+              @mousedown="startDragRec"
+              @mouseup="stopDragRec"
+              @mouseleave="stopDragRec"
+              @mousemove="onDragRec"
+            >
               <div
                 v-for="rec in recommendedSeries.fromSummary"
                 :key="rec.series_id"
                 class="recommendation-card"
-                @click="$router.push({ path: `/series/${rec.series_id}` })"
+                @click="handleRecClick(rec, $event)"
               >
                 <img :src="rec.image_url" alt="Series cover" />
                 <p>{{ rec.title }}</p>
               </div>
             </div>
           </div>
-
+          <div class="partial-divider"></div>
           <!-- Title Similarity -->
           <div v-if="recommendedSeries.titleSimilarity && recommendedSeries.titleSimilarity.length">
             <h4>Title Similarity</h4>
-            <div class="recommendation-list">
+            <div
+              class="recommendation-list"
+              @mousedown="startDragRec"
+              @mouseup="stopDragRec"
+              @mouseleave="stopDragRec"
+              @mousemove="onDragRec"
+            >
               <div
                 v-for="rec in recommendedSeries.titleSimilarity"
                 :key="rec.series_id"
                 class="recommendation-card"
-                @click="$router.push({ path: `/series/${rec.series_id}` })"
+                @click="handleRecClick(rec, $event)"
               >
                 <img :src="rec.image_url" alt="Series cover" />
                 <p>{{ rec.title }}</p>
@@ -196,7 +214,7 @@ export default {
     return {
       original: null,
       variants: [],
-      selectedVariant: null,  // currently selected variant issue object or null for original
+      selectedVariant: null, 
       issuesInSeries: [],
       loading: false,
       error: null,
@@ -209,6 +227,10 @@ export default {
         fromSummary: [],
         titleSimilarity: []
       },
+      isDraggingRec: false,
+      dragStartXRec: 0,
+      scrollStartXRec: 0,
+      dragMovedRec: false,
     };
   },
   mounted() {
@@ -223,10 +245,8 @@ export default {
     }
   },
   computed: {
-    // Shows either selected variant data or original issue data
     effectiveIssue() {
       if (this.selectedVariant) {
-        // Merge variant data on top of original, fallback to original values if missing
         return {
           ...this.original,
           ...this.selectedVariant,
@@ -394,14 +414,12 @@ export default {
 
     goToIssue(issueId) {
       if (!issueId) return;
-      // When navigating, always keep originalIssueId, change variantIssueId accordingly
       let originalId = this.original ? this.original.issue_id : issueId;
 
       // If clicked issue is original, navigate to /issue/:originalIssueId only
       if (issueId === originalId) {
         this.$router.push({ name: "IssueDetail", params: { originalIssueId: originalId } });
       } else {
-        // Otherwise include variant id
         this.$router.push({ 
           name: "IssueDetail", 
           params: { originalIssueId: originalId, variantIssueId: issueId } 
@@ -428,11 +446,33 @@ export default {
       }
       this.$refs.variantList.scrollLeft = this.scrollStartX - dx;
     },
+    
     handleVariantClick(issueId) {
       if (this.dragMoved) {
         return;
       }
       this.goToIssue(issueId);
+    },
+    startDragRec(event) {
+      this.isDraggingRec = true;
+      this.dragMovedRec = false;
+      this.dragStartXRec = event.pageX;
+      event.currentTarget.style.cursor = "grabbing";
+      this.scrollStartXRec = event.currentTarget.scrollLeft;
+    },
+    stopDragRec(event) {
+      this.isDraggingRec = false;
+      event.currentTarget.style.cursor = "grab";
+    },
+    onDragRec(event) {
+      if (!this.isDraggingRec) return;
+      const dx = event.pageX - this.dragStartXRec;
+      if (Math.abs(dx) > 3) this.dragMovedRec = true;
+      event.currentTarget.scrollLeft = this.scrollStartXRec - dx;
+    },
+    handleRecClick(rec) {
+      if (this.dragMovedRec) return;
+      this.$router.push({ path: `/series/${rec.series_id}` });
     },
   },
 };
@@ -447,10 +487,6 @@ export default {
   color: #333;
 }
 
-.recommended-series-section h3 {
-  font-size: 1.4rem;
-  margin-bottom: 10px;
-}
 
 .recommended-series-section h4 {
   font-size: 1.2rem;
@@ -460,25 +496,75 @@ export default {
 .recommendation-list {
   display: flex;
   gap: 15px;
-  overflow-x: auto;
+  overflow-x: auto;      
+  overflow-y: hidden;    
+  white-space: nowrap;  
+  cursor: grab;
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
+}
+
+.recommendation-list::-webkit-scrollbar {
+  display: none; 
 }
 
 .recommendation-card {
   flex: 0 0 auto;
-  width: 150px;
+  width: 150px; 
   cursor: pointer;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  padding: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+  background: white;
+  transition: transform 0.2s ease;
+  color: #333;
 }
 
 .recommendation-card img {
-  width: 100%;
+  height: 240px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 6px; 
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  user-select: none;
+  pointer-events: none;
 }
 
 .recommendation-card p {
-  margin-top: 5px;
-  font-size: 0.9rem;
+  margin: 0;
+  padding: 0 6px; 
+  font-weight: 600;
+  font-size: 0.95rem;
+  width: 100%;
+  text-align: center;
+  line-height: 1.2em;
+  
+  display: -webkit-box;
+  -webkit-line-clamp: 4; 
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal; 
+}
+
+.partial-divider {
+  border: none;
+  border-top: 1px solid #ccc;
+  width: 60%;
+  margin-left: 20%;  
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.recommendation-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(0, 122, 204, 0.6);
+  z-index: 10;
 }
 
 .fullscreen-cover-bg {

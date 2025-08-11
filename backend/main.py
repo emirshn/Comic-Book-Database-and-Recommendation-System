@@ -36,15 +36,9 @@ series_metadata = pd.read_csv(SERIES_METADATA_PATH)
 
 series_id_to_index = {sid: idx for idx, sid in enumerate(series_metadata["series_id"].values)}
 
-print("Loaded summary embeddings shape:", summary_embeddings.shape)
-print("Loaded series metadata rows:", len(series_metadata))
-print("Example series metadata:", series_metadata.head(3))
-
-
 for df in [df_original, df_variant]:
     df["release_date"] = pd.to_datetime(df["release_date"], errors='coerce')
 
-# Add explicit is_variant flag to original dataset (False)
 if 'is_variant' not in df_original.columns:
     df_original['is_variant'] = False
 
@@ -142,13 +136,11 @@ async def get_variants_by_original(
 
     records = []
 
-    # Add original issue first, mark it as original_variant for frontend use
     original_rec = clean_record(original.iloc[0].to_dict())
     original_rec["dataset"] = "original"
-    original_rec["is_original_variant"] = True  # custom flag for frontend
+    original_rec["is_original_variant"] = True  
     records.append(original_rec)
 
-    # Add variants, mark as not original_variant
     for rec in variants.to_dict(orient="records"):
         cleaned = clean_record(rec)
         cleaned["dataset"] = "variant"
@@ -269,7 +261,7 @@ def creators_to_set(creators_by_role):
 
 from sklearn.metrics.pairwise import cosine_similarity
 
-def get_summary_recommendations(issue_summary: str, issue_series_id: int, top_k=5):
+def get_summary_recommendations(issue_summary: str, issue_series_id: int, top_k=50):
     if not issue_summary or not issue_summary.strip():
         print("Empty summary input")
         return []
@@ -279,13 +271,9 @@ def get_summary_recommendations(issue_summary: str, issue_series_id: int, top_k=
         global model
         model = SentenceTransformer('all-MiniLM-L6-v2')
 
-    print("Encoding input summary:", issue_summary[:50])
     issue_emb = model.encode([issue_summary], convert_to_tensor=False)
-    print("Encoded input shape:", issue_emb.shape)
 
     sims = cosine_similarity(issue_emb, summary_embeddings)[0]
-    print("Max similarity score:", sims.max())
-    print("Min similarity score:", sims.min())
 
     sim_df = pd.DataFrame({
         "series_id": series_metadata["series_id"],
@@ -297,10 +285,6 @@ def get_summary_recommendations(issue_summary: str, issue_series_id: int, top_k=
     sim_df = sim_df[sim_df["series_id"] != issue_series_id]
 
     top_similar = sim_df.sort_values("similarity", ascending=False).head(top_k)
-
-    print("Top recommendations:")
-    for _, row in top_similar.iterrows():
-        print(f"Series: {row['series_title']} | Similarity: {row['similarity']}")
 
     results = []
     for _, row in top_similar.iterrows():
@@ -381,6 +365,9 @@ async def get_recommended_series(issue_id: int):
     if pd.notna(issue.get("summary")) and issue["summary"].strip():
         recommendations["fromSummary"] = get_summary_recommendations(issue["summary"], issue["series_id"])
 
+    # Add cover images for fromSummary recommendations
+    for rec in recommendations["fromSummary"]:
+        rec["image_url"] = cover_image_for_series(rec["series_id"])
 
     # === 3. Title Similarity with fuzzy scoring ===
     if pd.notna(issue.get("series_title")) and issue["series_title"].strip():

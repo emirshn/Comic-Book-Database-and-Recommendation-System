@@ -39,7 +39,7 @@
         class="issue-card"
         v-for="issue in pagedIssues"
         :key="issue.issue_id"
-        @click="$router.push({ path: `/issue/${issue.issue_id}` })"
+        @click="goToIssue(issue)"
         :class="{ selected: selectedIssue && selectedIssue.issue_id === issue.issue_id }"
       >
         <img :src="issue.image_url" alt="Cover" />
@@ -155,57 +155,78 @@ export default {
     },
   },
   methods: {
-    async loadSeriesIssues() {
-  if (!this.seriesId) return;
-  this.loading = true;
-  this.error = null;
-  this.selectedIssue = null;
-  this.variants = [];
-  this.original = null;
+    goToIssue(issue) {
+    if (!issue) return;
 
-  try {
-    const params = { series_id: Number(this.seriesId) };
-    if (this.filters.year) params.year = this.filters.year;
-    params.dataset = this.filters.dataset; // can be "original", "variant", or "all"
-
-    const res = await axios.get("http://127.0.0.1:8000/issues/", { params });
-    let issues = res.data || [];
-
-    // If dataset === "original", add has_variants flags by fetching variants count for each original issue
-    if (this.filters.dataset === "original" || this.filters.dataset === "all") {
-      // Build a map original_issue_id -> variant count for has_variants flag
-      const originalIds = issues
-        .filter(issue => !issue.is_variant)
-        .map(issue => issue.issue_id);
-
-      if (originalIds.length) {
-        // Fetch variants for all originals in one go (optional optimization)
-        // Or do variant fetching on demand per issue to keep simple
-        // Here, let's just mark has_variants false for simplicity
-        issues = issues.map(issue => ({
-          ...issue,
-          has_variants: false // or true if you want to implement checking here
-        }));
-      }
+    if (issue.is_variant && issue.original_issue_id) {
+      this.$router.push({
+        name: "IssueDetail",
+        params: {
+          originalIssueId: issue.original_issue_id,
+          variantIssueId: issue.issue_id,
+        },
+      });
+    } else {
+      // original issue
+      this.$router.push({
+        name: "IssueDetail",
+        params: {
+          originalIssueId: issue.issue_id,
+        },
+      });
     }
+  },
+    async loadSeriesIssues() {
+      if (!this.seriesId) return;
+      this.loading = true;
+      this.error = null;
+      this.selectedIssue = null;
+      this.variants = [];
+      this.original = null;
 
-    // Sort by issue_number
-    issues.sort((a, b) => {
-      const na = Number(a.issue_number);
-      const nb = Number(b.issue_number);
-      if (!isNaN(na) && !isNaN(nb)) return na - nb;
-      return String(a.issue_number).localeCompare(String(b.issue_number));
-    });
+      try {
+        const params = { series_id: Number(this.seriesId) };
+        if (this.filters.year) params.year = this.filters.year;
+        params.dataset = this.filters.dataset; // can be "original", "variant", or "all"
 
-    this.issues = issues;
-    this.currentPage = 1;
-  } catch (e) {
-    console.error(e);
-    this.error = "Failed to fetch issues.";
-  } finally {
-    this.loading = false;
-  }
-    },
+        const res = await axios.get("http://127.0.0.1:8000/issues/", { params });
+        let issues = res.data || [];
+
+        // If dataset === "original", add has_variants flags by fetching variants count for each original issue
+        if (this.filters.dataset === "original" || this.filters.dataset === "all") {
+          // Build a map original_issue_id -> variant count for has_variants flag
+          const originalIds = issues
+            .filter(issue => !issue.is_variant)
+            .map(issue => issue.issue_id);
+
+          if (originalIds.length) {
+            // Fetch variants for all originals in one go (optional optimization)
+            // Or do variant fetching on demand per issue to keep simple
+            // Here, let's just mark has_variants false for simplicity
+            issues = issues.map(issue => ({
+              ...issue,
+              has_variants: false // or true if you want to implement checking here
+            }));
+          }
+        }
+
+        // Sort by issue_number
+        issues.sort((a, b) => {
+          const na = Number(a.issue_number);
+          const nb = Number(b.issue_number);
+          if (!isNaN(na) && !isNaN(nb)) return na - nb;
+          return String(a.issue_number).localeCompare(String(b.issue_number));
+        });
+
+        this.issues = issues;
+        this.currentPage = 1;
+      } catch (e) {
+        console.error(e);
+        this.error = "Failed to fetch issues.";
+      } finally {
+        this.loading = false;
+      }
+      },
     formatDate(dateStr) {
       if (!dateStr) return "Unknown";
       return new Date(dateStr).toLocaleDateString();

@@ -7,11 +7,14 @@ import IssueDetail from '@/components/IssueDetail.vue';
 const routes = [
   { path: "/series", component: SeriesList, name: "SeriesList" },
   { path: "/series/:seriesId", component: SeriesIssues, props: true, name: "Series" },
-  { 
-  path: '/issue/:issueId', 
-  name: 'IssueDetail', 
-  component: IssueDetail, 
-  props: true 
+  {
+    path: '/issue/:originalIssueId/variant/:variantIssueId?',
+    name: 'IssueDetail',
+    component: IssueDetail,
+    props: route => ({
+      originalIssueId: route.params.originalIssueId,
+      variantIssueId: route.params.variantIssueId || null,
+    }),
   },
   { path: "/", redirect: "/series" },
 ];

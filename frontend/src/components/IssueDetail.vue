@@ -115,6 +115,60 @@
             </div>
           </div>
         </div>
+
+        <!-- Recommended Series Section -->
+        <div v-if="recommendedSeries && Object.keys(recommendedSeries).length" class="recommended-series-section">
+          <h3>Recommended Series</h3>
+
+          <!-- From Same Creators -->
+          <div v-if="recommendedSeries.sameCreators && recommendedSeries.sameCreators.length">
+            <h4>From Same Creators</h4>
+            <div class="recommendation-list">
+              <div
+                v-for="rec in recommendedSeries.sameCreators"
+                :key="rec.series_id"
+                class="recommendation-card"
+                @click="$router.push({ path: `/series/${rec.series_id}` })"
+              >
+                <img :src="rec.image_url" alt="Series cover" />
+                <p>{{ rec.title }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- From Summary Model -->
+          <div v-if="recommendedSeries.fromSummary && recommendedSeries.fromSummary.length">
+            <h4>Similar by Summary</h4>
+            <div class="recommendation-list">
+              <div
+                v-for="rec in recommendedSeries.fromSummary"
+                :key="rec.series_id"
+                class="recommendation-card"
+                @click="$router.push({ path: `/series/${rec.series_id}` })"
+              >
+                <img :src="rec.image_url" alt="Series cover" />
+                <p>{{ rec.title }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Title Similarity -->
+          <div v-if="recommendedSeries.titleSimilarity && recommendedSeries.titleSimilarity.length">
+            <h4>Title Similarity</h4>
+            <div class="recommendation-list">
+              <div
+                v-for="rec in recommendedSeries.titleSimilarity"
+                :key="rec.series_id"
+                class="recommendation-card"
+                @click="$router.push({ path: `/series/${rec.series_id}` })"
+              >
+                <img :src="rec.image_url" alt="Series cover" />
+                <p>{{ rec.title }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -134,12 +188,15 @@
 import axios from "axios";
 
 export default {
-  props: ["issueId"],
+  props: {
+    originalIssueId: String,
+    variantIssueId: { type: String, default: null }
+  },  
   data() {
     return {
-      issue: null,
-      variants: [],
       original: null,
+      variants: [],
+      selectedVariant: null,  // currently selected variant issue object or null for original
       issuesInSeries: [],
       loading: false,
       error: null,
@@ -147,34 +204,44 @@ export default {
       dragStartX: 0,
       scrollStartX: 0,
       dragMoved: false,
+      recommendedSeries: {
+        sameCreators: [],
+        fromSummary: [],
+        titleSimilarity: []
+      },
     };
   },
   mounted() {
-    this.loadIssue();
+    this.loadOriginalIssue(this.originalIssueId);
   },
   watch: {
-    issueId(newId, oldId) {
-      if (newId !== oldId) {
-        this.loadIssue();
-      }
+    originalIssueId(newId) {
+      this.loadOriginalIssue(newId);
     },
+    variantIssueId(newVariantId) {
+      this.selectVariant(newVariantId);
+    }
   },
   computed: {
+    // Shows either selected variant data or original issue data
     effectiveIssue() {
-      if (this.issue && this.issue.dataset === "variant" && this.original) {
+      if (this.selectedVariant) {
+        // Merge variant data on top of original, fallback to original values if missing
         return {
-          ...this.issue,
-          summary: this.issue.summary || this.original.summary,
-          creators: this.issue.creators || this.original.creators || "",
-          format: this.issue.format || this.original.format || "",
-          upc: this.issue.upc || this.original.upc || "",
-          foc_date: this.issue.foc_date || this.original.foc_date || "",
-          price: this.issue.price || this.original.price || "",
-          page_count: this.issue.page_count || this.original.page_count || "",
+          ...this.original,
+          ...this.selectedVariant,
+          summary: this.selectedVariant.summary || this.original.summary,
+          creators: this.selectedVariant.creators || this.original.creators || "",
+          format: this.selectedVariant.format || this.original.format || "",
+          upc: this.selectedVariant.upc || this.original.upc || "",
+          foc_date: this.selectedVariant.foc_date || this.original.foc_date || "",
+          price: this.selectedVariant.price || this.original.price || "",
+          page_count: this.selectedVariant.page_count || this.original.page_count || "",
         };
       }
-      return this.issue || {};
+      return this.original || {};
     },
+
     parsedCreators() {
       if (!this.effectiveIssue.creators) return {};
 
@@ -236,14 +303,7 @@ export default {
     },
 
     currentOriginalIssueId() {
-      if (!this.issue) return null;
-      if (this.issue.dataset === "original") {
-        return this.issue.issue_id;
-      }
-      if (this.issue.dataset === "variant" && this.issue.original_issue_id) {
-        return this.issue.original_issue_id;
-      }
-      return null;
+      return this.original ? this.original.issue_id : null;
     },
 
     currentIssueIndex() {
@@ -267,77 +327,94 @@ export default {
     },
   },
   methods: {
-    async loadIssue() {
-      if (!this.issueId) return;
-
+    async loadOriginalIssue(originalId) {
+      if (!originalId) return;
       this.loading = true;
       this.error = null;
-      this.issue = null;
-      this.variants = [];
       this.original = null;
+      this.variants = [];
+      this.selectedVariant = null;
       this.issuesInSeries = [];
 
       try {
-        const res = await axios.get(`http://127.0.0.1:8000/issues/${this.issueId}`);
-        this.issue = res.data;
+        // Load original issue
+        const originalRes = await axios.get(`http://127.0.0.1:8000/issues/${originalId}`, {
+          params: { dataset: "original" }
+        });
+        this.original = originalRes.data;
 
-        if (this.issue.dataset === "original") {
-          const vres = await axios.get(
-            `http://127.0.0.1:8000/issues/${this.issueId}/variants`
-          );
-          this.variants = vres.data || [];
-          this.original = null;
-        } else if (this.issue.dataset === "variant") {
-          const ores = await axios.get(
-            `http://127.0.0.1:8000/issues/${this.issue.original_issue_id}`,
-            {
-              params: { dataset: "original" },
-            }
-          );
-          this.original = ores.data || null;
+        // Load variants for this original
+        const variantsRes = await axios.get(`http://127.0.0.1:8000/issues/${originalId}/variants`);
+        this.variants = variantsRes.data || [];
 
-          if (this.original) {
-            const vres = await axios.get(
-              `http://127.0.0.1:8000/issues/${this.original.issue_id}/variants`
-            );
-            this.variants = vres.data || [];
-          }
-        }
-
-        if (this.issue && this.issue.series_id) {
+        // Load issues in series
+        if (this.original.series_id) {
           const issuesRes = await axios.get(`http://127.0.0.1:8000/issues/`, {
             params: {
-              series_id: this.issue.series_id,
+              series_id: this.original.series_id,
               dataset: "original",
               ordering: "issue_number",
               limit: 1000,
             },
           });
           this.issuesInSeries = issuesRes.data || [];
-
           this.issuesInSeries.sort((a, b) => a.issue_number - b.issue_number);
         }
+
+        // Fetch recommendations
+        const recRes = await axios.get(`http://127.0.0.1:8000/issues/${originalId}/recommended_series`);
+        this.recommendedSeries = recRes.data || {};
+
+        // Select variant based on current param
+        this.selectVariant(this.variantIssueId);
+
       } catch (e) {
         this.error = "Failed to load issue details.";
+        console.warn(e);
       } finally {
         this.loading = false;
       }
     },
+
+    selectVariant(variantId) {
+      if (!variantId || variantId === this.original.issue_id) {
+        this.selectedVariant = null;
+        this.issue = this.original;  // For backward compatibility in computed and template
+      } else {
+        const found = this.variants.find(v => String(v.issue_id) === String(variantId));
+        this.selectedVariant = found || null;
+        this.issue = this.selectedVariant || this.original;
+      }
+    },
+
     formatDate(dateStr) {
       if (!dateStr) return "Unknown";
       return new Date(dateStr).toLocaleDateString();
     },
+
     goToIssue(issueId) {
       if (!issueId) return;
-      this.$router.push({ name: "IssueDetail", params: { issueId } });
+      // When navigating, always keep originalIssueId, change variantIssueId accordingly
+      let originalId = this.original ? this.original.issue_id : issueId;
+
+      // If clicked issue is original, navigate to /issue/:originalIssueId only
+      if (issueId === originalId) {
+        this.$router.push({ name: "IssueDetail", params: { originalIssueId: originalId } });
+      } else {
+        // Otherwise include variant id
+        this.$router.push({ 
+          name: "IssueDetail", 
+          params: { originalIssueId: originalId, variantIssueId: issueId } 
+        });
+      }
     },
 
     startDrag(event) {
-  this.isDragging = true;
-  this.dragMoved = false;
-  this.dragStartX = event.pageX;
-  this.scrollStartX = this.$refs.variantList.scrollLeft;
-  this.$refs.variantList.style.cursor = "grabbing";
+      this.isDragging = true;
+      this.dragMoved = false;
+      this.dragStartX = event.pageX;
+      this.scrollStartX = this.$refs.variantList.scrollLeft;
+      this.$refs.variantList.style.cursor = "grabbing";
     },
     stopDrag() {
       this.isDragging = false;
@@ -352,16 +429,58 @@ export default {
       this.$refs.variantList.scrollLeft = this.scrollStartX - dx;
     },
     handleVariantClick(issueId) {
-    if (this.dragMoved) {
-      return;
-    }
-    this.goToIssue(issueId);
-  },
+      if (this.dragMoved) {
+        return;
+      }
+      this.goToIssue(issueId);
+    },
   },
 };
 </script>
 
 <style scoped>
+.recommended-series-section {
+  margin-top: 20px;
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  color: #333;
+}
+
+.recommended-series-section h3 {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+}
+
+.recommended-series-section h4 {
+  font-size: 1.2rem;
+  margin: 10px 0;
+}
+
+.recommendation-list {
+  display: flex;
+  gap: 15px;
+  overflow-x: auto;
+}
+
+.recommendation-card {
+  flex: 0 0 auto;
+  width: 150px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.recommendation-card img {
+  width: 100%;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.recommendation-card p {
+  margin-top: 5px;
+  font-size: 0.9rem;
+}
+
 .fullscreen-cover-bg {
   position: fixed;
   top: 0;

@@ -1,5 +1,10 @@
 <template>
   <div class="dataset-stats">
+    <header class="app-header">
+      <h1>Comic Book Database</h1>
+    </header>
+    <button @click="$router.push('/series')" class="btn-series">To Search Comics</button>
+
     <h2>Dataset Stats</h2>
 
     <div v-if="loading">Loading data...</div>
@@ -139,6 +144,7 @@
 </template>
 
 <script>
+
 import axios from "axios";
 import {
   Chart as ChartJS,
@@ -167,6 +173,7 @@ ChartJS.register(
   ArcElement,
   Filler
 );
+import { useIssuesStore } from '../store/issuesStore'
 
 export default {
   name: "DatasetStats",
@@ -177,9 +184,6 @@ export default {
   },
   data() {
     return {
-      loading: false,
-      error: null,
-      issues: [],
       showGeneralData: true,
       showCreatorsData: true,
       showVariantData: true,
@@ -239,8 +243,22 @@ export default {
       },
     };
   },
-  mounted() {
-    this.fetchIssues();
+  computed: {
+    loading() {
+      return this.issuesStore.loading;
+    },
+    error() {
+      return this.issuesStore.error;
+    },
+    issues() {
+      return this.issuesStore.issues;
+    }
+  },
+  created() {
+    this.issuesStore = useIssuesStore();
+    this.issuesStore.fetchIssues().then(() => {
+      this.prepareCharts();
+    });
   },
   methods: {
     async fetchIssues() {
@@ -250,7 +268,7 @@ export default {
         const res = await axios.get("http://127.0.0.1:8000/issues/", {
           params: { dataset: "all", limit: 50000 }
         });
-        this.issues = res.data || [];
+        this.issuesStore.issues = res.data || [];
         this.prepareCharts();
       } catch (e) {
         console.error(e);
@@ -277,10 +295,9 @@ export default {
 
 
     prepareSeriesPerYearChart() {
-      // Use series_start_year to count series per year
       const seriesYearsCount = new Map();
 
-      this.issues.forEach((issue) => {
+      this.issuesStore.issues.forEach((issue) => {
         const startYear = issue.series_start_year;
         if (!startYear) return;
         seriesYearsCount.set(startYear, (seriesYearsCount.get(startYear) || 0) + 1);
@@ -317,10 +334,9 @@ export default {
     },
 
     prepareIssueCountDistributionChart() {
-      // Count issues per series
       const seriesIssueCount = new Map();
 
-      this.issues.forEach((issue) => {
+      this.issuesStore.issues.forEach((issue) => {
         const sid = issue.series_id;
         if (!sid) return;
         seriesIssueCount.set(sid, (seriesIssueCount.get(sid) || 0) + 1);
@@ -364,7 +380,7 @@ export default {
     prepareMostCollaboratedCreatorsChart() {
     const pairCounts = new Map();
 
-    this.issues.forEach((issue) => {
+    this.issuesStore.issues.forEach((issue) => {
       const creators = this.parseCreatorsShortlist(issue.creators_shortlist);
       // Remove duplicates & sort so pairs are consistent
       const uniqueCreators = Array.from(new Set(creators)).sort();
@@ -378,7 +394,6 @@ export default {
       }
     });
 
-    // Sort pairs descending by count
     const sortedPairs = Array.from(pairCounts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20);
@@ -399,7 +414,7 @@ export default {
     prepareCreatorsWithMostBooksChart() {
       const creatorSeries = new Map();
 
-      this.issues.forEach((issue) => {
+      this.issuesStore.issues.forEach((issue) => {
         const creators = this.parseCreatorsShortlist(issue.creators_shortlist);
         const seriesId = issue.series_id;
         if (!seriesId) return;
@@ -430,7 +445,7 @@ export default {
       let originalCount = 0;
       let variantCount = 0;
 
-      this.issues.forEach((issue) => {
+      this.issuesStore.issues.forEach((issue) => {
         if (issue.is_variant) variantCount++;
         else originalCount++;
       });
@@ -449,7 +464,7 @@ export default {
     prepareBooksWithMostVariantsChart() {
       const variantCounts = new Map();
 
-      this.issues.forEach((issue) => {
+      this.issuesStore.issues.forEach((issue) => {
         if (issue.is_variant && issue.original_issue_id) {
           variantCounts.set(issue.original_issue_id, (variantCounts.get(issue.original_issue_id) || 0) + 1);
         }
@@ -459,7 +474,7 @@ export default {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 20);
 
-      const issueIdToTitle = new Map(this.issues.map((issue) => [issue.issue_id, issue.title]));
+      const issueIdToTitle = new Map(this.issuesStore.issues.map((issue) => [issue.issue_id, issue.title]));
 
       const labels = topVariants.map(([origId]) => issueIdToTitle.get(origId) || origId);
       const data = topVariants.map(([, count]) => count);
@@ -479,7 +494,7 @@ export default {
       const topOrigId = topVariants[0][0];
       const topCount = topVariants[0][1];
 
-      const origIssue = this.issues.find(issue => issue.issue_id === topOrigId);
+      const origIssue = this.issuesStore.issues.find(issue => issue.issue_id === topOrigId);
 
       this.topVariantBook.title = origIssue ? origIssue.title : 'N/A';
       this.topVariantBook.variantCount = topCount;
@@ -494,7 +509,7 @@ export default {
 
   const seriesMap = new Map();
 
-  this.issues.forEach((issue) => {
+  this.issuesStore.issues.forEach((issue) => {
     const sid = issue.series_id;
     if (!sid) return;
 
@@ -556,18 +571,67 @@ export default {
 </script>
 
 <style scoped>
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem 0;
+  user-select: none;
+}
+
+.app-header h1 {
+  font-family: "Poppins", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 900;
+  font-size: 4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0;
+  padding: 1rem 2rem;
+  
+  background-image: url('https://i.ebayimg.com/images/g/pbUAAOSwynZjoqIx/s-l1200.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  
+  color: white;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  cursor: default;
+}
+
+.btn-series, .btn-new {
+  font-family: "Roboto Condensed", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 100;
+  font-size: 1rem;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: #2c7be5;
+  color: white;
+  transition: background-color 0.3s ease;
+}
+
+.btn-series:hover, .btn-new:hover {
+  background-color: #1a4f9c;
+}
+
 .dataset-stats > h2 {
   font-family: "Poppins", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   font-weight: 900;
-  font-size: 2.8rem;
-  color: #e4b3d7; 
+  font-size: 3rem;
   text-transform: uppercase;
   text-align: center;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.15em;
   margin-bottom: 2rem;
   user-select: none;
   cursor: default;
+
+  color: rgb(214, 165, 237);             
+  padding: 1rem 0;
+  position: relative;
 }
+
 
 .section-header {
   cursor: pointer;

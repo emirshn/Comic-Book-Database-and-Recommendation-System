@@ -1,6 +1,9 @@
 <template>
   <div class="app">
-    <h1>Marvel Comics — Series & Issues</h1>
+      <router-link to="/" class="back">← Back to Series</router-link>
+    <header class="app-header">
+      <h1>Comic Book Database</h1>
+    </header>
 
     <!-- Search + Filter Bar -->
     <form @submit.prevent="applyFilters" class="search-form">
@@ -128,23 +131,30 @@
 </template>
 
 <script>
-import axios from "axios";
 import { seriesState } from "@/store/seriesState";
+import { useIssuesStore } from '../store/issuesStore'
 
 export default {
   data() {
     return {
-      loading: false,
-      error: null,
       pageSize: 20,
-
       showAdvancedFilters: false, 
     };
   },
   mounted() {
-    this.searchSeries();
+    this.searchSeries()
   },
   computed: {
+    issuesStore() {
+      return useIssuesStore()
+    },
+
+    loading() {
+      return this.issuesStore.loading
+    },
+    error() {
+      return this.issuesStore.error
+    },
    seriesQuery: {
     get() {
       return seriesState.query;
@@ -330,13 +340,11 @@ export default {
       this.error = null;
       this.currentPage = 1;
       try {
-        const params = {};
-        if (this.seriesQuery) params.series_title = this.seriesQuery;
-        params.dataset = "original";
-        params.limit = 50000;
 
-        const res = await axios.get("http://127.0.0.1:8000/issues/", { params });
-        const issues = res.data || [];
+        await this.issuesStore.fetchIssues()
+        const allIssues = this.issuesStore.issues || []
+        console.log(allIssues.length)
+        const issues = allIssues.filter(issue => !issue.is_variant || issue.is_variant === 0)
 
         const map = new Map();
         for (const it of issues) {
@@ -408,16 +416,43 @@ export default {
       this.currentPage = page;
     }
   },
-  applyFilters() {
-    this.currentPage = 1;
-    this.error = null;
-    this.searchSeries();
-  },
+    applyFilters() {
+      this.currentPage = 1;
+      this.error = null;
+      this.searchSeries();
+    },
   },
 };
 </script>
 
 <style scoped>
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem 0;
+  user-select: none;
+}
+
+.app-header h1 {
+  font-family: "Poppins", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-weight: 900;
+  font-size: 4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0;
+  padding: 1rem 2rem;
+  
+  background-image: url('https://i.ebayimg.com/images/g/pbUAAOSwynZjoqIx/s-l1200.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  
+  color: white;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  cursor: default;
+}
 .app {
   font-family: "Roboto Condensed", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -681,4 +716,26 @@ h1 {
   margin-top: 12px;
   padding-top: 8px;
 }
+.back {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  border-radius: 8px;
+  background-color: #007acc;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0, 122, 204, 0.8);
+  transition: background-color 0.2s ease;
+  z-index: 10;  /* above background */
+  white-space: nowrap;
+}
+
+.back:hover {
+  background-color: #005fa3;
+}
+
 </style>

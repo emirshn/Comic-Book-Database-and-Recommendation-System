@@ -2,8 +2,7 @@
   <div class="app series-page">
 
     <div class="series-header">
-          <router-link to="/series" class="back">← Back to Series</router-link>
-
+      <router-link to="/series" class="back">← Back to Series</router-link>
     <div
       v-if="issues.length && issues[0].image_url"
       class="fullscreen-cover-bg"
@@ -12,7 +11,7 @@
 
     <div class="title-stack">
       <h2>{{ issues.length ? issues[0].series_title : `Series ID: ${seriesId}` }}</h2>
-      <p class="subtitle">Browse issues, filter by year, and toggle variants.</p>
+      <p class="subtitle">Browse issues, filter and toggle variants.</p>
     </div>
   </div>
 
@@ -312,7 +311,7 @@ export default {
 
 .series-header {
   position: relative;
-  max-width: 1980px;  /* or your preferred width */
+  max-width: 1980px;  
   margin: 0 auto 2rem auto;
   padding: 40px 20px;
   border-radius: 8px;
@@ -321,9 +320,9 @@ export default {
   background-color: transparent;
 
   display: flex;
-  justify-content: center; /* center horizontally */
-  align-items: center;     /* center vertically */
-  min-height: 160px;       /* enough height */
+  justify-content: center; 
+  align-items: center;     
+  min-height: 160px;       
 }
 
 .back {
@@ -385,7 +384,7 @@ export default {
 }
 
 .title-stack {
-  flex-grow: 1; /* take all remaining space */
+  flex-grow: 1; 
   text-align: center;
   position: relative;
   z-index: 10;
@@ -399,14 +398,14 @@ export default {
   font-size: 3rem;
   line-height: 1.1;
   text-transform: uppercase;
-  color: white; 
+  color: rgb(44, 42, 42); 
 }
 
 .title-stack .subtitle {
   margin: 0;
   font-weight: 600;
   font-size: 1.1rem;
-  color: #ddd;
+  color: #3c3636;
 }
 
 

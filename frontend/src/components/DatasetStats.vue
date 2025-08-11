@@ -293,7 +293,6 @@ export default {
       this.prepareLongestRunningSeriesChart();
     },
 
-
     prepareSeriesPerYearChart() {
       const seriesYearsCount = new Map();
 
@@ -376,40 +375,84 @@ export default {
       };
     },
 
-
     prepareMostCollaboratedCreatorsChart() {
-    const pairCounts = new Map();
+      const pairCounts = new Map();
 
-    this.issuesStore.issues.forEach((issue) => {
-      const creators = this.parseCreatorsShortlist(issue.creators_shortlist);
-      // Remove duplicates & sort so pairs are consistent
-      const uniqueCreators = Array.from(new Set(creators)).sort();
+      function parseCreatorsDetailed(creatorsStr) {
+        if (!creatorsStr) return {};
 
-      // Generate all pairs
-      for (let i = 0; i < uniqueCreators.length; i++) {
-        for (let j = i + 1; j < uniqueCreators.length; j++) {
-          const pairKey = uniqueCreators[i] + " & " + uniqueCreators[j];
-          pairCounts.set(pairKey, (pairCounts.get(pairKey) || 0) + 1);
+        const entries = creatorsStr
+          .split(";")
+          .map(s => s.trim())
+          .filter(Boolean);
+
+        const creatorsByRole = {};
+
+        for (let entry of entries) {
+          entry = entry.replace(/\s*(\(\d+\)|\[\d+\])$/, "").trim();
+
+          let match = entry.match(/^([^:]+):\s*(.+)$/);
+          if (match) {
+            const role = match[1].trim();
+            const name = match[2].trim();
+            if (!creatorsByRole[role]) creatorsByRole[role] = [];
+            creatorsByRole[role].push(name);
+            continue;
+          }
+
+          match = entry.match(/^(.+?)\s*\(([^)]+)\)$/);
+          if (match) {
+            const name = match[1].trim();
+            const role = match[2].trim();
+            if (!creatorsByRole[role]) creatorsByRole[role] = [];
+            creatorsByRole[role].push(name);
+            continue;
+          }
+
+          if (!creatorsByRole["Unknown"]) creatorsByRole["Unknown"] = [];
+          creatorsByRole["Unknown"].push(entry);
         }
+
+        return creatorsByRole;
       }
-    });
 
-    const sortedPairs = Array.from(pairCounts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 20);
+      this.issuesStore.issues.forEach(issue => {
+        const creatorsByRole = parseCreatorsDetailed(issue.creators);
 
-    this.mostCollaboratedCreatorsData = {
-      labels: sortedPairs.map(([pair]) => pair),
-      datasets: [
-        {
-          label: "Number of Issues Together",
-          data: sortedPairs.map(([, count]) => count),
-          backgroundColor: "#7bd389",
-        },
-      ],
-    };
+        const relevantRoles = Object.entries(creatorsByRole).filter(
+          ([role]) => {
+            const r = role.toLowerCase();
+            return r === "writer" || r === "penciller";
+          }
+        );
+
+        const creators = relevantRoles.flatMap(([, names]) => names);
+
+        const uniqueCreators = Array.from(new Set(creators)).sort();
+
+        for (let i = 0; i < uniqueCreators.length; i++) {
+          for (let j = i + 1; j < uniqueCreators.length; j++) {
+            const pairKey = uniqueCreators[i] + " & " + uniqueCreators[j];
+            pairCounts.set(pairKey, (pairCounts.get(pairKey) || 0) + 1);
+          }
+        }
+      });
+
+      const sortedPairs = Array.from(pairCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20);
+      
+      this.mostCollaboratedCreatorsData = {
+        labels: sortedPairs.map(([pair]) => pair),
+        datasets: [
+          {
+            label: "Number of Issues Together",
+            data: sortedPairs.map(([, count]) => count),
+            backgroundColor: "#7bd389",
+          },
+        ],
+      };
     },
-
 
     prepareCreatorsWithMostBooksChart() {
       const creatorSeries = new Map();

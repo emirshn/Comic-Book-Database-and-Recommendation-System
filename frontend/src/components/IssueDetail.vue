@@ -442,17 +442,16 @@ export default {
     },
     
     handleVariantClick(issueId) {
-  if (this.dragMoved) return;
+      if (this.dragMoved) return;
 
-  // Variants should always keep their parent original issue's ID
-  const originalId = this.original ? this.original.issue_id : null;
-  if (!originalId) return;
+      const originalId = this.original ? this.original.issue_id : null;
+      if (!originalId) return;
 
-  this.$router.push({
-    name: "IssueDetail",
-    params: { originalIssueId: originalId, variantIssueId: issueId }
-  });
-},
+      this.$router.push({
+        name: "IssueDetail",
+        params: { originalIssueId: originalId, variantIssueId: issueId }
+      });
+    },
     startDragRec(event) {
       this.isDraggingRec = true;
       this.dragMovedRec = false;

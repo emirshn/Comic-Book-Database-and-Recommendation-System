@@ -414,17 +414,11 @@ export default {
 
     goToIssue(issueId) {
       if (!issueId) return;
-      let originalId = this.original ? this.original.issue_id : issueId;
 
-      // If clicked issue is original, navigate to /issue/:originalIssueId only
-      if (issueId === originalId) {
-        this.$router.push({ name: "IssueDetail", params: { originalIssueId: originalId } });
-      } else {
-        this.$router.push({ 
-          name: "IssueDetail", 
-          params: { originalIssueId: originalId, variantIssueId: issueId } 
-        });
-      }
+      this.$router.push({ 
+        name: "IssueDetail", 
+        params: { originalIssueId: issueId } 
+      });
     },
 
     startDrag(event) {
@@ -448,11 +442,17 @@ export default {
     },
     
     handleVariantClick(issueId) {
-      if (this.dragMoved) {
-        return;
-      }
-      this.goToIssue(issueId);
-    },
+  if (this.dragMoved) return;
+
+  // Variants should always keep their parent original issue's ID
+  const originalId = this.original ? this.original.issue_id : null;
+  if (!originalId) return;
+
+  this.$router.push({
+    name: "IssueDetail",
+    params: { originalIssueId: originalId, variantIssueId: issueId }
+  });
+},
     startDragRec(event) {
       this.isDraggingRec = true;
       this.dragMovedRec = false;

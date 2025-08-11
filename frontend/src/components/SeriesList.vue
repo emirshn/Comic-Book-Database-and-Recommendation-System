@@ -1,6 +1,6 @@
 <template>
   <div class="app">
-      <router-link to="/" class="back">← Back to Series</router-link>
+      <router-link to="/" class="back">← Back to Stats</router-link>
     <header class="app-header">
       <h1>Comic Book Database</h1>
     </header>
@@ -357,7 +357,6 @@ export default {
           // Find issue #1 with image
           let issueOne = list.find((issue) => Number(issue.issue_number) === 1 && issue.image_url);
           if (!issueOne) {
-            // fallback: lowest issue_number with image
             const sorted = list
               .filter((issue) => issue.image_url && !isNaN(Number(issue.issue_number)))
               .sort((a, b) => Number(a.issue_number) - Number(b.issue_number));
@@ -730,7 +729,7 @@ h1 {
   user-select: none;
   box-shadow: 0 2px 6px rgba(0, 122, 204, 0.8);
   transition: background-color 0.2s ease;
-  z-index: 10;  /* above background */
+  z-index: 10; 
   white-space: nowrap;
 }
 

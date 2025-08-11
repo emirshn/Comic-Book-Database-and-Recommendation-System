@@ -240,7 +240,6 @@ def parse_creators(creators_str):
 
     return creators_by_role
 
-
 def filter_story_creators(creators_by_role):
     if not creators_by_role:
         return {}
@@ -257,7 +256,6 @@ def creators_to_set(creators_by_role):
     for names in creators_by_role.values():
         all_names.update([name.lower() for name in names])
     return all_names
-
 
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -295,8 +293,6 @@ def get_summary_recommendations(issue_summary: str, issue_series_id: int, top_k=
         })
 
     return results
-
-
 
 @app.get("/issues/{issue_id}/recommended_series")
 async def get_recommended_series(issue_id: int):
@@ -368,6 +364,11 @@ async def get_recommended_series(issue_id: int):
     # Add cover images for fromSummary recommendations
     for rec in recommendations["fromSummary"]:
         rec["image_url"] = cover_image_for_series(rec["series_id"])
+
+    if recommendations["fromSummary"]:
+        df_from_summary = pd.DataFrame(recommendations["fromSummary"])
+        df_from_summary = df_from_summary.drop_duplicates(subset=["series_id"], keep="first")
+        recommendations["fromSummary"] = df_from_summary.to_dict(orient="records")
 
     # === 3. Title Similarity with fuzzy scoring ===
     if pd.notna(issue.get("series_title")) and issue["series_title"].strip():

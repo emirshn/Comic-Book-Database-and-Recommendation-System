@@ -303,6 +303,14 @@ export default {
 </script>
 
 <style scoped>
+.app {
+  font-family: "Roboto Condensed", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+.app button,
+.app select,
+.app textarea {
+  font-family: "Roboto Condensed", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif !important;
+}
 .back-wrapper {
   max-width: 980px;
   margin: 20px auto 8px auto;

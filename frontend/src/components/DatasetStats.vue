@@ -12,6 +12,8 @@
 
     <div v-if="!loading && !error">
       
+       <CreatorStats :issues="issuesStore.issues" />
+
       <div
         class="section-header general-header"
         @click="showGeneralData = !showGeneralData"
@@ -51,36 +53,6 @@
               />
             </div>
 
-        </div>
-      </transition>
-
-      <div
-        class="section-header creators-header"
-        @click="showCreatorsData = !showCreatorsData"
-        role="button"
-        tabindex="0"
-      >
-        CREATORS STATISTICS
-        <div class="toggle-indicator">{{ showCreatorsData ? "▲" : "▼" }}</div>
-      </div>
-
-      <transition name="slide-fade">
-        <div v-show="showCreatorsData" class="section-content">
-          <div class="chart-container">
-            <BarChart
-              :data="mostCollaboratedCreatorsData"
-              :options="barOptionsCreators"
-              :style="{ width: '100%', height: '320px' }"
-            />
-          </div>
-
-          <div class="chart-container">
-            <BarChart
-              :data="creatorsWithMostBooksData"
-              :options="barOptionsCreatorsBooks"
-              :style="{ width: '100%', height: '320px' }"
-            />
-          </div>
         </div>
       </transition>
 
@@ -174,6 +146,7 @@ import {
 } from "chart.js";
 import { Line, Bar, Pie } from "vue-chartjs";
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
+import CreatorStats from "@/components/stats/CreatorStats.vue";
 
 ChartJS.register(MatrixController, MatrixElement);
 
@@ -197,19 +170,17 @@ export default {
     LineChart: Line,
     BarChart: Bar,
     PieChart: Pie,
+    CreatorStats
   },
   data() {
     return {
       minYear: null,
       maxYear: null,
       showGeneralData: true,
-      showCreatorsData: true,
       showVariantData: true,
       showOtherData: true,
       lineChartData: { labels: [], datasets: [] },
       barChartData: { labels: [], datasets: [] },
-      mostCollaboratedCreatorsData: { labels: [], datasets: [] },
-      creatorsWithMostBooksData: { labels: [], datasets: [] },
       originalVsVariantData: { labels: [], datasets: [] },
       booksWithMostVariantsData: { labels: [], datasets: [] },
       issuesPerPublisherData: { labels: [], datasets: [] },
@@ -218,22 +189,6 @@ export default {
       title: '',
       variantCount: 0,
       coverUrl: ''
-      },
-      barOptionsCreators: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: "Most Collaborated Creators (by issues)" },
-        },
-      },
-      barOptionsCreatorsBooks: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: "Creators with Most Books (series count)" },
-        },
       },
       pieOptions: {
         responsive: true,
@@ -323,15 +278,8 @@ export default {
       }
     },
 
-    parseCreatorsShortlist(shortlistStr) {
-      if (!shortlistStr) return [];
-      return shortlistStr.split(",").map((c) => c.trim());
-    },
-
     prepareCharts() {
       this.prepareSeriesPerYearChart();
-      this.prepareMostCollaboratedCreatorsChart();
-      this.prepareCreatorsWithMostBooksChart();
       this.prepareOriginalVsVariantChart();
       this.prepareBooksWithMostVariantsChart();
       this.prepareLongestRunningSeriesChart();
@@ -353,7 +301,7 @@ export default {
         options: this.heatmapOptions,
       });
     },
-   prepareReleaseDateHeatmap() {
+    prepareReleaseDateHeatmap() {
       const counts = {};
       let minYear = 9999;
       let maxYear = 0;
@@ -489,11 +437,6 @@ export default {
       console.log("Heatmap year range:", minDecade, maxDecade, "data points:", data.length);
     },
 
-
-
-
-
-
     prepareTopSeriesByIssuesChart() {
       const seriesIssueCounts = new Map();
 
@@ -600,115 +543,6 @@ export default {
       }],
     };
   },
-
-    prepareMostCollaboratedCreatorsChart() {
-      const pairCounts = new Map();
-
-      function parseCreatorsDetailed(creatorsStr) {
-        if (!creatorsStr) return {};
-
-        const entries = creatorsStr
-          .split(";")
-          .map(s => s.trim())
-          .filter(Boolean);
-
-        const creatorsByRole = {};
-
-        for (let entry of entries) {
-          entry = entry.replace(/\s*(\(\d+\)|\[\d+\])$/, "").trim();
-
-          let match = entry.match(/^([^:]+):\s*(.+)$/);
-          if (match) {
-            const role = match[1].trim();
-            const name = match[2].trim();
-            if (!creatorsByRole[role]) creatorsByRole[role] = [];
-            creatorsByRole[role].push(name);
-            continue;
-          }
-
-          match = entry.match(/^(.+?)\s*\(([^)]+)\)$/);
-          if (match) {
-            const name = match[1].trim();
-            const role = match[2].trim();
-            if (!creatorsByRole[role]) creatorsByRole[role] = [];
-            creatorsByRole[role].push(name);
-            continue;
-          }
-
-          if (!creatorsByRole["Unknown"]) creatorsByRole["Unknown"] = [];
-          creatorsByRole["Unknown"].push(entry);
-        }
-
-        return creatorsByRole;
-      }
-
-      this.issuesStore.issues.forEach(issue => {
-        const creatorsByRole = parseCreatorsDetailed(issue.creators);
-
-        const relevantRoles = Object.entries(creatorsByRole).filter(
-          ([role]) => {
-            const r = role.toLowerCase();
-            return r === "writer" || r === "penciller";
-          }
-        );
-
-        const creators = relevantRoles.flatMap(([, names]) => names);
-
-        const uniqueCreators = Array.from(new Set(creators)).sort();
-
-        for (let i = 0; i < uniqueCreators.length; i++) {
-          for (let j = i + 1; j < uniqueCreators.length; j++) {
-            const pairKey = uniqueCreators[i] + " & " + uniqueCreators[j];
-            pairCounts.set(pairKey, (pairCounts.get(pairKey) || 0) + 1);
-          }
-        }
-      });
-
-      const sortedPairs = Array.from(pairCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 20);
-      
-      this.mostCollaboratedCreatorsData = {
-        labels: sortedPairs.map(([pair]) => pair),
-        datasets: [
-          {
-            label: "Number of Issues Together",
-            data: sortedPairs.map(([, count]) => count),
-            backgroundColor: "#7bd389",
-          },
-        ],
-      };
-    },
-
-    prepareCreatorsWithMostBooksChart() {
-      const creatorSeries = new Map();
-
-      this.issuesStore.issues.forEach((issue) => {
-        const creators = this.parseCreatorsShortlist(issue.creators_shortlist);
-        const seriesId = issue.series_id;
-        if (!seriesId) return;
-
-        creators.forEach((name) => {
-          if (!creatorSeries.has(name)) creatorSeries.set(name, new Set());
-          creatorSeries.get(name).add(seriesId);
-        });
-      });
-
-      const creatorSeriesCount = Array.from(creatorSeries.entries()).map(([name, seriesSet]) => [name, seriesSet.size]);
-
-      const sortedCreators = creatorSeriesCount.sort((a, b) => b[1] - a[1]).slice(0, 20);
-
-      this.creatorsWithMostBooksData = {
-        labels: sortedCreators.map(([name]) => name),
-        datasets: [
-          {
-            label: "Number of series",
-            data: sortedCreators.map(([, count]) => count),
-            backgroundColor: "#63a4ff",
-          },
-        ],
-      };
-    },
 
     prepareOriginalVsVariantChart() {
       let originalCount = 0;
@@ -925,7 +759,6 @@ export default {
 }
 
 .general-header { color: #2c7be5; }
-.creators-header { color: #7bd389; }
 .variant-header { color: #9b7bff; }
 .other-header { color: chocolate; }
 

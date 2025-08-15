@@ -128,7 +128,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import api from "../axios";
 
 export default {
   props: ["seriesId"],
@@ -277,7 +277,7 @@ export default {
         if (this.filterMarvelUnlimited) params.marvel_unlimited = true;
         if (this.issueQuery) params.title = this.issueQuery;
 
-        const res = await axios.get("http://127.0.0.1:8000/issues/", { params });
+        const res = await api.get("/issues/", { params });
         let issues = res.data || [];
         
         issues.sort((a, b) => {

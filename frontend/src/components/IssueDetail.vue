@@ -203,7 +203,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import api from "../axios";
 
 export default {
   props: {
@@ -358,18 +358,18 @@ export default {
 
       try {
         // Load original issue
-        const originalRes = await axios.get(`http://127.0.0.1:8000/issues/${originalId}`, {
+        const originalRes = await api.get(`http://127.0.0.1:8000/issues/${originalId}`, {
           params: { dataset: "original" }
         });
         this.original = originalRes.data;
 
         // Load variants for this original
-        const variantsRes = await axios.get(`http://127.0.0.1:8000/issues/${originalId}/variants`);
+        const variantsRes = await api.get(`http://127.0.0.1:8000/issues/${originalId}/variants`);
         this.variants = variantsRes.data || [];
 
         // Load issues in series
         if (this.original.series_id) {
-          const issuesRes = await axios.get(`http://127.0.0.1:8000/issues/`, {
+          const issuesRes = await api.get(`http://127.0.0.1:8000/issues/`, {
             params: {
               series_id: this.original.series_id,
               dataset: "original",
@@ -382,7 +382,7 @@ export default {
         }
 
         // Fetch recommendations
-        const recRes = await axios.get(`http://127.0.0.1:8000/issues/${originalId}/recommended_series`);
+        const recRes = await api.get(`http://127.0.0.1:8000/issues/${originalId}/recommended_series`);
         this.recommendedSeries = recRes.data || {};
 
         // Select variant based on current param

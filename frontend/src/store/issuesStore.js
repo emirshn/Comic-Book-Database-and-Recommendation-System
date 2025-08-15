@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
+import api from "../axios";
 
 export const useIssuesStore = defineStore('issues', {
   state: () => ({
@@ -14,7 +14,7 @@ export const useIssuesStore = defineStore('issues', {
       this.loading = true
       this.error = null
       try {
-        const res = await axios.get('http://127.0.0.1:8000/issues/', {
+        const res = await api.get('http://127.0.0.1:8000/issues/', {
           params: { dataset: 'all', limit: 100000 },
         })
         this.issues = res.data || []

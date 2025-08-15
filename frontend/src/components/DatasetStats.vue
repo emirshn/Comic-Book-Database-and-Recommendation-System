@@ -21,7 +21,7 @@
 
 <script>
 
-import axios from "axios";
+import api from "../axios";
 import {
   Chart as ChartJS,
   Title,
@@ -90,7 +90,7 @@ export default {
       this.loading = true;
       this.error = null;
       try {
-        const res = await axios.get("http://127.0.0.1:8000/issues/", {
+        const res = await api.get("http://127.0.0.1:8000/issues/", {
           params: { dataset: "all", limit: 50000 }
         });
         this.issuesStore.issues = res.data || [];

@@ -4,14 +4,24 @@ import pandas as pd
 import math
 import os
 import numpy as np
-app = FastAPI(title="Marvel Comics Issues API")
 from dotenv import load_dotenv
 
-load_dotenv()  
+app = FastAPI(title="Marvel Comics Issues API")
+
+from pathlib import Path as FSPath
+BASE_DIR = FSPath(__file__).parent.resolve()
+dotenv_path = BASE_DIR / ".env"
+load_dotenv(dotenv_path)
 
 from fastapi.middleware.cors import CORSMiddleware
 
 environment = os.getenv("ENVIRONMENT", "development")
+frontend_url = os.getenv("FRONTEND_URL")
+
+print("=== DEBUG: Starting FastAPI ===")
+print(f"ENVIRONMENT = {environment}")
+print(f"FRONTEND_URL = {frontend_url}")
+
 if environment == "production":
     allow_origins = [os.getenv("FRONTEND_URL")]
 else:
@@ -19,6 +29,10 @@ else:
         "http://127.0.0.1:8080",
         "http://localhost:8000",
         "http://127.0.0.1:8000",]
+
+environment = os.getenv("ENVIRONMENT", "development")
+frontend_url = os.getenv("FRONTEND_URL")
+
 
 app.add_middleware(
     CORSMiddleware,

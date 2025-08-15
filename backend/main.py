@@ -5,17 +5,24 @@ import math
 import os
 import numpy as np
 app = FastAPI(title="Marvel Comics Issues API")
+from dotenv import load_dotenv
+
+load_dotenv()  
 
 from fastapi.middleware.cors import CORSMiddleware
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
+environment = os.getenv("ENVIRONMENT", "development")
+if environment == "production":
+    allow_origins = [os.getenv("FRONTEND_URL")]
+else:
+    allow_origins = [ "http://localhost:8080",
         "http://127.0.0.1:8080",
         "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
+        "http://127.0.0.1:8000",]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

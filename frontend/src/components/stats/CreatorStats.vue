@@ -361,7 +361,7 @@ export default {
         if (!creatorsStr) return {};
 
         const entries = creatorsStr
-          .split(";")
+          .split(/[,;]+/)
           .map(s => s.trim())
           .filter(Boolean);
 

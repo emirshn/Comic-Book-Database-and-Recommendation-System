@@ -382,7 +382,6 @@ async def get_recommended_series(issue_id: int):
         print(f"No story creators found for issue_id={issue_id}")
 
     #  2. From Summary 
-    print(f"Input summary for issue_id={issue_id} is: {issue['summary'][:100]}")
     if pd.notna(issue.get("summary")) and issue["summary"].strip():
         recommendations["fromSummary"] = get_summary_recommendations(issue["summary"], issue["series_id"])
 

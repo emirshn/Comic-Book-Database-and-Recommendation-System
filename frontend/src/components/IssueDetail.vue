@@ -266,7 +266,7 @@ export default {
       if (!this.effectiveIssue.creators) return {};
 
       const entries = this.effectiveIssue.creators
-        .split(";")
+        .split(/[,;]+/)
         .map((s) => s.trim())
         .filter(Boolean);
 

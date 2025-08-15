@@ -464,7 +464,6 @@ export default {
             },
         };
 
-        console.log("Heatmap year range:", minDecade, maxDecade, "data points:", data.length);
         },
         prepareTopSeriesByIssuesChart() {
     const seriesMap = new Map();

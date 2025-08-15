@@ -30,6 +30,8 @@ This project provides a full-stack solution for comic book fans to explore, filt
 - **Vue.js frontend** for browsing series, issues, creators, and recommendations.  
 - Recommendation system based on **creators, series summaries, and title similarity**.  
 
+I am using Marvel dataset which i fetched myself from Marvel website you can acces it from [here](https://www.kaggle.com/datasets/emirshn/marvel-comics-issues-dataset-including-variants) if you are using Kaggle. Or its already included in repo you can use that.
+
 You can test app from [this](https://comicbookdatabase.netlify.app/) (I am using free tools dont overload it pls :/) 
 ---
 

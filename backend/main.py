@@ -232,10 +232,6 @@ async def get_stats():
         "series_count_variants": df_variant["series_title"].nunique(),
     }
 
-import pandas as pd
-import re
-from rapidfuzz import fuzz
-
 def parse_creators(creators_str):
     if pd.isna(creators_str) or not creators_str.strip():
         return {}
@@ -282,142 +278,127 @@ def creators_to_set(creators_by_role):
         all_names.update([name.lower() for name in names])
     return all_names
 
-from sklearn.metrics.pairwise import cosine_similarity
+from rapidfuzz import fuzz, process
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import pandas as pd
+import re
 
-def get_summary_recommendations(issue_summary: str, issue_series_id: int, top_k=50):
-    if not issue_summary or not issue_summary.strip():
-        print("Empty summary input")
-        return []
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
-    if 'model' not in globals():
-        from sentence_transformers import SentenceTransformer
-        global model
-        model = SentenceTransformer('all-MiniLM-L6-v2')
+# 2) Build a single df of all issues (already defined above as df_original/df_variant)
+df_all = pd.concat([df_original, df_variant], ignore_index=True)
 
-    issue_emb = model.encode([issue_summary], convert_to_tensor=False)
+# 3) Canonical, de-duplicated series table
+series_df = series_metadata.drop_duplicates(subset=["series_id"]).copy()
+series_df["series_id"] = series_df["series_id"].astype(int)
+series_df["series_title"] = series_df["series_title"].astype(str).fillna("")
 
-    sims = cosine_similarity(issue_emb, summary_embeddings)[0]
+series_ids   = series_df["series_id"].tolist()
+series_titles = series_df["series_title"].tolist()
+sid_to_title = dict(zip(series_ids, series_titles))
 
-    sim_df = pd.DataFrame({
-        "series_id": series_metadata["series_id"],
-        "series_title": series_metadata["series_title"],
-        "similarity": sims,
-        "summary": series_metadata["summary"]
-    })
+def build_series_creator_sets(df_all: pd.DataFrame) -> dict[int, set[str]]:
+    series_creator_sets: dict[int, set[str]] = {}
+    for sid, group in df_all.groupby("series_id", sort=False):
+        names_set: set[str] = set()
+        for c in group["creators"].dropna().unique().tolist():
+            parsed   = parse_creators(c)
+            filtered = filter_story_creators(parsed)
+            names_set |= creators_to_set(filtered)
+        series_creator_sets[int(sid)] = names_set
+    return series_creator_sets
 
-    sim_df = sim_df[sim_df["series_id"] != issue_series_id]
+series_creator_sets = build_series_creator_sets(df_all)
 
-    top_similar = sim_df.sort_values("similarity", ascending=False).head(top_k)
-
-    results = []
-    for _, row in top_similar.iterrows():
-        results.append({
-            "series_id": int(row["series_id"]),
-            "title": row["series_title"],
-            "similarity_score": float(row["similarity"]),
-        })
-
-    return results
+def cover_image_for_series(series_id: int) -> str | None:
+    grp = df_all[df_all["series_id"] == series_id].sort_values("release_date").head(1)
+    if not grp.empty and "image_url" in grp.columns:
+        return grp.iloc[0]["image_url"]
+    return None
 
 @app.get("/issues/{issue_id}/recommended_series")
 async def get_recommended_series(issue_id: int):
     issue = df_original[df_original["issue_id"] == issue_id]
-    dataset = "original"
     if issue.empty:
         issue = df_variant[df_variant["issue_id"] == issue_id]
-        dataset = "variant"
     if issue.empty:
         raise HTTPException(status_code=404, detail=f"Issue ID {issue_id} not found")
 
     issue = issue.iloc[0]
-    df_all = pd.concat([df_original, df_variant], ignore_index=True)
+    current_sid = int(issue["series_id"])
+    recs = {"sameCreators": [], "fromSummary": [], "titleSimilarity": []}
 
-    def cover_image_for_series(series_id):
-        first_issue = df_all[df_all["series_id"] == series_id].sort_values("release_date").head(1)
-        if not first_issue.empty and "image_url" in first_issue.columns:
-            return first_issue.iloc[0]["image_url"]
-        return None
+    # 1) Same creators 
+    issue_creators_parsed  = parse_creators(issue.get("creators", ""))
+    issue_story_creators   = filter_story_creators(issue_creators_parsed)
+    issue_creator_names    = creators_to_set(issue_story_creators)
 
-    recommendations = {
-        "sameCreators": [],
-        "fromSummary": [],
-        "titleSimilarity": []
-    }
+    if issue_creator_names:
+        same = []
+        for sid, names_set in series_creator_sets.items():
+            if sid == current_sid:
+                continue
+            overlap = issue_creator_names & names_set
+            if overlap:
+                same.append({
+                    "series_id": sid,
+                    "title": sid_to_title.get(sid, ""),
+                    "image_url": cover_image_for_series(sid),
+                    "match_score": len(overlap),
+                })
+        same.sort(key=lambda x: x["match_score"], reverse=True)
+        recs["sameCreators"] = same[:20]
 
-    #  1. Same Creators 
-    issue_creators_parsed = parse_creators(issue.get("creators", ""))
-    issue_story_creators = filter_story_creators(issue_creators_parsed)
-    issue_creator_names_set = creators_to_set(issue_story_creators)
+    # 2) From summary 
+    if pd.notna(issue.get("summary")) and str(issue["summary"]).strip():
+        # cosine similarity without sklearn (lighter)
+        issue_vec = model.encode([issue["summary"]], convert_to_tensor=False)[0]
+        A = summary_embeddings 
 
-    if issue_creator_names_set:
-        same_creator_df = df_all[
-            (df_all["series_id"] != issue["series_id"]) &
-            (df_all["creators"].notna()) &
-            (df_all["creators"].str.lower() != "nan")
-        ].copy()
+        num = A @ issue_vec
+        den = (np.linalg.norm(A, axis=1) * (np.linalg.norm(issue_vec) + 1e-8)) + 1e-8
+        sims = num / den
 
-        def creator_match_score(creators_str):
-            other_parsed = parse_creators(creators_str)
-            other_story_creators = filter_story_creators(other_parsed)
-            other_names_set = creators_to_set(other_story_creators)
-            common = issue_creator_names_set & other_names_set
-            return len(common)
+        sim_df = pd.DataFrame({
+            "series_id": series_metadata["series_id"].astype(int),
+            "similarity": sims
+        })
+        sim_df = (sim_df[sim_df["series_id"] != current_sid]
+                  .groupby("series_id", as_index=False)["similarity"].max())
 
-        same_creator_df["match_score"] = same_creator_df["creators"].apply(creator_match_score)
-        same_creator_df = same_creator_df[same_creator_df["match_score"] > 0]
-        same_creator_df = same_creator_df.sort_values(by="match_score", ascending=False)
+        top = sim_df.nlargest(20, "similarity")
+        recs["fromSummary"] = [{
+            "series_id": int(row.series_id),
+            "title": sid_to_title.get(int(row.series_id), ""),
+            "similarity_score": float(row.similarity),
+            "image_url": cover_image_for_series(int(row.series_id)),
+        } for _, row in top.iterrows()]
 
-        matched_series = same_creator_df[["series_id", "series_title", "match_score"]]
-        matched_series = matched_series.drop_duplicates(subset=["series_id"])
-
-        for sid, title, score in matched_series.values:
-            recommendations["sameCreators"].append({
-                "series_id": int(sid),
-                "title": title,
+    # 3) Title similarity 
+    issue_title = str(issue["series_title"] or "").strip()
+    if issue_title:
+        matches = process.extract(
+            issue_title,
+            series_titles,                # choices
+            scorer=fuzz.token_set_ratio,
+            limit=200
+        )
+        seen: set[int] = set([current_sid])
+        title_hits = []
+        for title, score, idx in matches:
+            sid = int(series_ids[idx])    
+            if sid in seen:
+                continue
+            seen.add(sid)
+            title_hits.append({
+                "series_id": sid,
+                "title": sid_to_title.get(sid, title),
+                "match_score": int(score),
                 "image_url": cover_image_for_series(sid),
-                "match_score": int(score)
             })
+            if len(title_hits) >= 20:
+                break
+        recs["titleSimilarity"] = title_hits
 
-    else:
-        print(f"No story creators found for issue_id={issue_id}")
-
-    #  2. From Summary 
-    if pd.notna(issue.get("summary")) and issue["summary"].strip():
-        recommendations["fromSummary"] = get_summary_recommendations(issue["summary"], issue["series_id"])
-
-    for rec in recommendations["fromSummary"]:
-        rec["image_url"] = cover_image_for_series(rec["series_id"])
-
-    if recommendations["fromSummary"]:
-        df_from_summary = pd.DataFrame(recommendations["fromSummary"])
-        df_from_summary = df_from_summary.drop_duplicates(subset=["series_id"], keep="first")
-        recommendations["fromSummary"] = df_from_summary.to_dict(orient="records")
-
-    #  3. Title Similarity with fuzzy scoring 
-    if pd.notna(issue.get("series_title")) and issue["series_title"].strip():
-        issue_title = str(issue["series_title"]).strip()
-        
-        candidates = df_all[df_all["series_id"] != issue["series_id"]].copy()
-
-        def fuzzy_score(title):
-            return fuzz.token_set_ratio(issue_title, title)
-
-        candidates["fuzzy_score"] = candidates["series_title"].apply(fuzzy_score)
-
-        candidates = candidates[candidates["fuzzy_score"] >= 50]
-
-        candidates = candidates.sort_values(by="fuzzy_score", ascending=False)
-
-        candidates = candidates.drop_duplicates(subset=["series_id"])
-
-        top_candidates = candidates.head(50)
-
-        for sid, title, score in top_candidates[["series_id", "series_title", "fuzzy_score"]].values:
-            recommendations["titleSimilarity"].append({
-                "series_id": int(sid),
-                "title": title,
-                "image_url": cover_image_for_series(sid),
-                "match_score": int(score)
-            })
-            
-    return recommendations
+    return recs

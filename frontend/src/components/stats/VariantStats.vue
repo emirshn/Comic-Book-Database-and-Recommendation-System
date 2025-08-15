@@ -24,7 +24,6 @@
   <div class="top-variant-book-container">
     <h3>Book with Most Variant Covers</h3>
 
-    <!-- Title + count inline -->
     <div class="book-title-row">
       <strong class="book-title">{{ topVariantBook.title || "N/A" }}</strong>
       <span class="variant-count"> Variant Count: {{ topVariantBook.variantCount || 0 }}</span>

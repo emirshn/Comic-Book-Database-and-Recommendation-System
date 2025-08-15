@@ -38,11 +38,6 @@
 
       <transition name="fade-slide">
         <div v-if="showAdvancedFilters" class="filters-row advanced-filters">
-          <!-- <label>
-            Year:
-            <input type="number" v-model.number="filterYear" min="1900" />
-          </label> -->
-
           <label>
             Sort By:
             <select v-model="sortBy">
@@ -94,7 +89,7 @@
               title="Available in Marvel Unlimited"
             />
           </div>
-          <div class="small">{{ issue.creators_shortlist || "Unknown creators" }}</div>
+          <div class="small">{{ issue.creators_shortlist || "No shortlist exists" }}</div>
           <div class="small">{{ formatDate(issue.release_date) }}</div>
           <div class="chips-row">
             <div class="chip" :class="issue.is_variant ? 'variant' : 'original'">

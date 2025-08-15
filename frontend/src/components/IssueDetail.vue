@@ -1,12 +1,11 @@
 <template>
   <div class="issue-detail-wrapper">
-    <!-- Blurred fullscreen cover background -->
+    <!-- Cover background -->
     <div
       v-if="effectiveIssue.image_url"
       class="fullscreen-cover-bg"
       :style="{ backgroundImage: `url(${effectiveIssue.image_url})` }"
     ></div>
-    <!-- Dark overlay above blur for contrast -->
     <div class="cover-bg-overlay"></div>
 
     <!-- Left navigation arrow -->
@@ -32,7 +31,6 @@
       <div v-else-if="error" class="error">{{ error }}</div>
 
       <div v-else-if="effectiveIssue">
-        <!-- Top main info with transparent background -->
         <div class="issue-main-info">
           <img :src="effectiveIssue.image_url" alt="Cover" width="280" />
 
@@ -46,12 +44,24 @@
             <div class="creators-grid" v-if="Object.keys(parsedCreators).length">
               <div class="creator-column">
                 <strong>Writer</strong>
-                <p>{{ (parsedCreators.Writer || []).join(", ") || "N/A" }}</p>
+                <template v-if="(parsedCreators.Writer || []).length">
+                  <p v-for="(pair, i) in chunk(parsedCreators.Writer, 2)" :key="'w'+i">
+                    {{ pair.join(', ') }}
+                  </p>
+                </template>
+                <p v-else>N/A</p>
               </div>
+
               <div class="creator-column">
                 <strong>Penciller</strong>
-                <p>{{ (parsedCreators.Penciller || []).join(", ") || "N/A" }}</p>
+                <template v-if="(parsedCreators.Penciller || []).length">
+                  <p v-for="(pair, i) in chunk(parsedCreators.Penciller, 2)" :key="'p'+i">
+                    {{ pair.join(', ') }}
+                  </p>
+                </template>
+                <p v-else>N/A</p>
               </div>
+
             </div>
 
             <p><strong>Summary:</strong> {{ effectiveIssue.summary || "No summary available." }}</p>
@@ -88,7 +98,7 @@
           </div>
         </section>
 
-        <!-- Variants section with white background -->
+        <!-- Variants -->
         <div v-if="variants.length" class="variants-section">
           <div class="creator-column">
                 <strong>Variants</strong>
@@ -116,7 +126,7 @@
           </div>
         </div>
 
-        <!-- Recommended Series Section -->
+        <!-- Recommended Series -->
         <div v-if="recommendedSeries && Object.keys(recommendedSeries).length" class="recommended-series-section">
           <h3>Recommended Series</h3>
 
@@ -263,42 +273,41 @@ export default {
     },
 
     parsedCreators() {
-      if (!this.effectiveIssue.creators) return {};
+  if (!this.effectiveIssue.creators) return {};
 
-      const entries = this.effectiveIssue.creators
-        .split(/[,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+  const entries = this.effectiveIssue.creators
+    .split(/[,;]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
 
-      const creatorsByRole = {};
+  const creatorsByRole = {};
+  let lastRole = null;
 
-      for (let entry of entries) {
-        entry = entry.replace(/\s*(\(\d+\)|\[\d+\])$/, "").trim();
+  for (let entry of entries) {
+    entry = entry.replace(/\s*(\(\d+\)|\[\d+\])$/, "").trim();
 
-        let match = entry.match(/^([^:]+):\s*(.+)$/);
-        if (match) {
-          const role = match[1].trim();
-          const name = match[2].trim();
-          if (!creatorsByRole[role]) creatorsByRole[role] = [];
-          creatorsByRole[role].push(name);
-          continue;
-        }
+    let match = entry.match(/^([^:]+):\s*(.+)$/);
+    if (match) {
+      // Found new role
+      lastRole = match[1].trim();
+      const name = match[2].trim();
+      if (!creatorsByRole[lastRole]) creatorsByRole[lastRole] = [];
+      creatorsByRole[lastRole].push(name);
+    }
+    else if (lastRole) {
+      // Continuation of last role
+      creatorsByRole[lastRole].push(entry);
+    }
+    else {
+      // No role detected and no lastRole → Unknown
+      if (!creatorsByRole["Unknown"]) creatorsByRole["Unknown"] = [];
+      creatorsByRole["Unknown"].push(entry);
+    }
+  }
 
-        match = entry.match(/^(.+?)\s*\(([^)]+)\)$/);
-        if (match) {
-          const name = match[1].trim();
-          const role = match[2].trim();
-          if (!creatorsByRole[role]) creatorsByRole[role] = [];
-          creatorsByRole[role].push(name);
-          continue;
-        }
-
-        if (!creatorsByRole["Unknown"]) creatorsByRole["Unknown"] = [];
-        creatorsByRole["Unknown"].push(entry);
-      }
-
-      return creatorsByRole;
+  return creatorsByRole;
     },
+
 
     storiesCreators() {
       if (!this.parsedCreators) return {};
@@ -347,6 +356,7 @@ export default {
     },
   },
   methods: {
+    
     async loadOriginalIssue(originalId) {
       if (!originalId) return;
       this.loading = true;
@@ -394,6 +404,14 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    chunk(list, size = 2) {
+      if (!Array.isArray(list)) return [];
+      const out = [];
+      for (let i = 0; i < list.length; i += size) {
+        out.push(list.slice(i, i + size));
+      }
+      return out;
     },
 
     selectVariant(variantId) {
@@ -660,9 +678,9 @@ export default {
   margin: 0;
   font-size: 1rem;
   line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
   color: white;
 }
 

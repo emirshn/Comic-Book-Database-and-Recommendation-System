@@ -5,7 +5,6 @@
       <h1>Comic Book Database</h1>
     </header>
 
-    <!-- Search + Filter Bar -->
     <form @submit.prevent="applyFilters" class="search-form">
       <div class="filters-row main-search-row">
         <label class="search-title-label">
@@ -72,14 +71,12 @@
       </transition>
     </form>
 
-    <!-- Status messages -->
     <div v-if="loading" class="loading">Loading series...</div>
     <div v-if="error" class="error">{{ error }}</div>
     <div v-if="!loading && !seriesList.length && !error" class="no-results">
       No series found.
     </div>
 
-    <!-- Series Grid -->
     <div v-if="filteredSeries.length" class="series-grid">
       <router-link
         v-for="s in pagedSeries"
@@ -109,7 +106,6 @@
       </router-link>
     </div>
 
-    <!-- Pagination -->
     <div v-if="filteredSeries.length > pageSize" class="pagination">
       <button @click="prevPage" :disabled="currentPage === 1">&lt; Prev</button>
 

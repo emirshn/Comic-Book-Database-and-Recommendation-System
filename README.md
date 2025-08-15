@@ -38,16 +38,32 @@ You can test app from [this](https://comicbookdatabase.netlify.app/) (I removed 
 
 ## Features
 
-- Browse and filter comic issues by **series, year, and variant status**.  
-- Search for **series** using prefix matching.  
-- Get detailed recommendations for issues based on:
-  - Same creators  
-  - Series summaries (semantic similarity)  
-  - Title similarity (fuzzy matching)  
-- View issue metadata: **release dates, images, creators, variant covers and much more**.
+- Browse & Filter Comics
+  - Filter issues by series, year, or variant status.
+  - Search for series or creators with prefix matching.
+- View Detailed Issue Info
+  - Release dates, images, creators, variant covers, and more.
+  - Explore series and creator stats.
 - Check interesting stats about Marvel Comics
-- Fast and responsive **web interface**.  
-- Fully containerizable and deployable to **Render** (backend) and **Netlify** (frontend).  
+  - With heatmaps, topology, bar, pie and line charts. 
+- Hybrid Recommendations
+  Each issue page shows recommended series based on three strategies:
+  1. Same Creators
+  - Series written or drawn by the same writers/pencillers as the current issue.
+  - Ranked by the number of overlapping creators.
+  2. Summary Semantic Similarity
+  - Each series summary is converted into a vector embedding using the SentenceTransformer('all-MiniLM-L6-v2') model.
+  - Embeddings capture the meaning of the text, allowing comparison beyond simple keyword matching.
+  - Cosine similarity is computed between the current issue’s summary and all pre-computed series embeddings.
+  3. Title Similarity
+  - Fuzzy matching between series titles using rapidfuzz.
+  - Helps find series with similar names or naming patterns.
+- Efficient Data Handling
+  - Pre-computed embeddings and metadata allow fast, scalable recommendations.
+  - Works with large datasets of thousands of issues without slowing down the API.
+- Web Interface
+  - Fast and responsive frontend built with Vue 3, compatible with modern browsers.
+  - Seamless browsing, filtering, and recommendation display.
 ---
 
 ## Capabilities

@@ -11,7 +11,7 @@
 </div>
 
 <transition name="slide-fade">
-    <div v-show="showGeneralData" class="section-content">
+    <div v-if="showGeneralData" class="section-content">
         <div class="chart-container">
             <LineChart
                 :data="lineChartData"
@@ -40,7 +40,7 @@
                 :style="{ width: '100%', height: '320px' }"
             />
         </div>
-        <div class="section-content" style="height: 600px;">
+        <div class="chart-container" style="height: 400px;">
             <canvas v-if="releaseDateHeatmapData" ref="heatmapCanvas"></canvas>
         </div>
     </div>
@@ -97,7 +97,7 @@ export default {
     return {
         minYear: null,
         maxYear: null,
-        showGeneralData: true,
+        showGeneralData: false,
         lineChartData: { labels: [], datasets: [] },
         barChartData: { labels: [], datasets: [] },
         seriesLongestRunningData: { labels: [], datasets: [] },
@@ -108,6 +108,35 @@ export default {
             legend: { display: false },
             title: { display: true, text: "Longest Running Series (years)" },
             },
+            scales: {
+    x: {
+        ticks: {
+            callback: function(value) {
+                const str = this.getLabelForValue(value);
+                const maxLength = 15; // max chars per line
+                if (str.length <= maxLength) return str;
+
+                const words = str.split(' ');
+                const lines = [];
+                let currentLine = '';
+
+                for (let word of words) {
+                    if ((currentLine + ' ' + word).trim().length > maxLength) {
+                        lines.push(currentLine.trim());
+                        currentLine = word;
+                    } else {
+                        currentLine += ' ' + word;
+                    }
+                }
+                if (currentLine) lines.push(currentLine.trim());
+
+                return lines;
+            }
+        }
+    }
+            }
+
+
         },
         seriesLengthPieData: { labels: [], datasets: [] },
         pieOptionsSeriesLength: {
@@ -154,8 +183,14 @@ export default {
             this.prepareCharts();
             }
         },
-        
         },
+        showGeneralData(val) {
+            if (val) {
+            this.$nextTick(() => {
+                this.renderHeatmap();
+            });
+            }
+        }
     },
     methods: {
         parseCreatorsDetailed(creatorsStr) {
@@ -201,9 +236,6 @@ export default {
             this.prepareSeriesLengthDistributionPieChart();
             this.prepareTopSeriesByIssuesChart();
             this.prepareReleaseDateHeatmap();
-            this.$nextTick(() => {
-                this.renderHeatmap();
-                });
         },
         prepareSeriesPerYearChart() {
             const seriesYearsCount = new Map();
@@ -411,6 +443,12 @@ export default {
             },
             plugins: {
             legend: { display: false },
+            title: {
+                display: true,
+                text: "Issues Released Over Time",
+                font: { size: 18, weight: "bold" },
+                padding: { top: 10, bottom: 20 }
+            },
             tooltip: {
                 callbacks: {
                 title(ctx) {
@@ -429,28 +467,38 @@ export default {
         console.log("Heatmap year range:", minDecade, maxDecade, "data points:", data.length);
         },
         prepareTopSeriesByIssuesChart() {
-            const seriesIssueCounts = new Map();
+    const seriesMap = new Map();
 
-            this.issues.forEach(issue => {
-                if (!issue.series_title) return;
-                seriesIssueCounts.set(issue.series_title, (seriesIssueCounts.get(issue.series_title) || 0) + 1);
+    this.issues.forEach(issue => {
+        const sid = issue.series_id;
+        if (!sid) return;
+
+        if (!seriesMap.has(sid)) {
+            seriesMap.set(sid, {
+                title: issue.series_title || "Unknown",
+                startYear: issue.series_start_year || null,
+                count: 0,
             });
+        }
+        seriesMap.get(sid).count++;
+    });
 
-            const sorted = Array.from(seriesIssueCounts.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10);
+    const sorted = Array.from(seriesMap.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
 
-            this.topSeriesByIssuesData = {
-                labels: sorted.map(([title]) => title),
-                datasets: [
-                {
-                    label: "Number of Issues",
-                    data: sorted.map(([, count]) => count),
-                    backgroundColor: "#2c7be5",
-                },
-                ],
-            };
+    this.topSeriesByIssuesData = {
+        labels: sorted.map(s => `${s.title} (${s.startYear || "N/A"})`),
+        datasets: [
+            {
+                label: "Number of Issues",
+                data: sorted.map(s => s.count),
+                backgroundColor: "#2c7be5",
+            },
+        ],
+    };
         },
+
         prepareLongestRunningSeriesChart() {
             const currentYear = new Date().getFullYear();
 
@@ -585,7 +633,7 @@ export default {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   position: relative;
   flex: 1;
-  min-width: 500px;
+  min-width: unset;
 }
 
 .creator-legend {

@@ -11,30 +11,35 @@
 </div>
 
 <transition name="slide-fade">
-    <div v-show="showGeneralData" class="section-content">
+    <div v-if="showGeneralData" class="section-content">
         <div class="row pie-and-book">
-            <div style="width: 320px; height: 320px;">
-            <PieChart
-                :data="originalVsVariantData"
-                :options="pieOptions"
-                :style="{ width: '320px', height: '320px' }"
-            />
-        </div>
+  <div class="pie-container" style="width: 320px; height: 320px;">
+    <PieChart
+      :data="originalVsVariantData"
+      :options="pieOptions"
+      :style="{ width: '320px', height: '320px' }"
+    />
+  </div>
 
+  <div class="top-variant-book-container">
+    <h3>Book with Most Variant Covers</h3>
 
-        <div class="top-variant-book-container">
-          <h3>Book with Most Variant Covers</h3>
-          <p><strong>{{ topVariantBook.title || "N/A" }}</strong></p>
-          <p>Variant Covers: {{ topVariantBook.variantCount || 0 }}</p>
-        <img
-            v-if="topVariantBook.coverUrl"
-            :src="topVariantBook.coverUrl"
-            alt="Cover Image"
-            class="cover-image"
-        />
-        <p v-else>No cover image available</p>
-        </div>
+    <!-- Title + count inline -->
+    <div class="book-title-row">
+      <strong class="book-title">{{ topVariantBook.title || "N/A" }}</strong>
+      <span class="variant-count"> Variant Count: {{ topVariantBook.variantCount || 0 }}</span>
     </div>
+
+    <img
+      v-if="topVariantBook.coverUrl"
+      :src="topVariantBook.coverUrl"
+      alt="Cover Image"
+      class="cover-image"
+    />
+    <p v-else class="no-cover">No cover image available</p>
+  </div>
+</div>
+
 
     <div class="chart-container">
         <BarChart
@@ -94,7 +99,7 @@ export default {
     },
     data() {
     return {
-        showGeneralData: true,
+        showGeneralData: false,
         originalVsVariantData: { labels: [], datasets: [] },
         booksWithMostVariantsData: { labels: [], datasets: [] },
         topVariantBook: {
@@ -251,7 +256,7 @@ export default {
 <style scoped>
 .row.pie-and-book {
   display: flex;
-  align-items: stretch;    
+  align-items: center;    
   justify-content: center;  
   gap: 24px;
   margin-bottom: 30px;
@@ -266,12 +271,33 @@ export default {
   padding: 15px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
+.book-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
 
+.book-title {
+  font-weight: bold;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.variant-count {
+  font-size: 0.95rem;
+  color: #555;
+}
 .top-variant-book-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 320px; 
   max-width: 320px;
   text-align: left;
   background: white;
-  border-radius: 12px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
@@ -284,13 +310,17 @@ export default {
 }
 
 .cover-image {
-  max-width: 180px;
+  max-width: 186px;
   max-height: 240px;
   object-fit: contain;
-  border-radius: 8px;
-  margin-top: 8px;
+  margin-top: auto; 
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-  transition: transform 0.2s ease;
+  overflow: hidden;
+
+}
+.no-cover {
+  color: #777;
+  font-style: italic;
 }
 .cover-image:hover {
   transform: scale(1.05);

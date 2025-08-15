@@ -17,7 +17,6 @@
 
 
     <form @submit.prevent="searchIssues" class="search-form">
-      <!-- MAIN SEARCH ROW -->
       <div class="filters-row main-search-row">
         <label class="search-title-label">
           <span class="label-text">Issue Title:</span>
@@ -37,13 +36,22 @@
         </button>
       </div>
 
-      <!-- ADVANCED FILTERS BELOW -->
       <transition name="fade-slide">
         <div v-if="showAdvancedFilters" class="filters-row advanced-filters">
           <!-- <label>
             Year:
             <input type="number" v-model.number="filterYear" min="1900" />
           </label> -->
+
+          <label>
+            Sort By:
+            <select v-model="sortBy">
+              <option value="issue_number">Issue #</option>
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="title">Title (A–Z)</option>
+            </select>
+          </label>
 
           <label class="checkbox-label">
             <input type="checkbox" v-model="includeVariants" />
@@ -54,6 +62,8 @@
             <input type="checkbox" v-model="filterMarvelUnlimited" />
             Marvel Unlimited
           </label>
+
+          
         </div>
       </transition>
     </form>
@@ -143,6 +153,7 @@ export default {
       filterYear: null,
       includeVariants: false,
       filterMarvelUnlimited: false,
+      sortBy: 'issue_number',
     };
   },
   computed: {
@@ -198,8 +209,40 @@ export default {
     filterMarvelUnlimited() {
       this.searchIssues();
     },
+    sortBy() {
+      this.sortIssues();
+    }
   },
   methods: {
+    sortIssues() {
+      switch (this.sortBy) {
+        case 'issue_number':
+          this.issues.sort((a, b) => {
+            const na = Number(a.issue_number);
+            const nb = Number(b.issue_number);
+            if (!isNaN(na) && !isNaN(nb)) return na - nb;
+            return String(a.issue_number).localeCompare(String(b.issue_number));
+          });
+          break;
+        case 'newest':
+          this.issues.sort((a, b) => {
+            const aDate = new Date(a.release_date || 0);
+            const bDate = new Date(b.release_date || 0);
+            return bDate - aDate;
+          });
+          break;
+        case 'oldest':
+          this.issues.sort((a, b) => {
+            const aDate = new Date(a.release_date || 0);
+            const bDate = new Date(b.release_date || 0);
+            return aDate - bDate;
+          });
+          break;
+        case 'title':
+          this.issues.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+          break;
+      }
+    },
     goToIssue(issue) {
       if (!issue) return;
 

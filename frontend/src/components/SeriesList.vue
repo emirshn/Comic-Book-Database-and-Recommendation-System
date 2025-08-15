@@ -255,13 +255,10 @@ export default {
           return maxYear && maxYear <= this.filterEndYear;
         });
       }
-
-      // Issue count filter
       if (this.filterMinIssues) {
         list = list.filter((s) => s.count >= this.filterMinIssues);
       }
 
-      // Sorting
       if (this.sortBy === "title") {
         list.sort((a, b) => a.title.localeCompare(b.title));
       } else if (this.sortBy === "count") {

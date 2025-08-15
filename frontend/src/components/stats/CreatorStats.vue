@@ -123,7 +123,7 @@ export default {
     },
   },
   methods: {
-     prepareCharts() {
+    prepareCharts() {
       this.prepareCreatorTopologyData();
       this.prepareMostCollaboratedCreatorsChart();
       this.prepareCreatorsWithMostBooksChart();

@@ -113,7 +113,7 @@ export default {
         ticks: {
             callback: function(value) {
                 const str = this.getLabelForValue(value);
-                const maxLength = 15; // max chars per line
+                const maxLength = 15; 
                 if (str.length <= maxLength) return str;
 
                 const words = str.split(' ');
@@ -438,7 +438,7 @@ export default {
                 labels: decadeLabels,
                 offset: true,
                 grid: { display: false },
-                reverse: true,  // optional: newest decade on top
+                reverse: true,  
             },
             },
             plugins: {

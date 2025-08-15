@@ -399,7 +399,7 @@ export default {
     selectVariant(variantId) {
       if (!variantId || variantId === this.original.issue_id) {
         this.selectedVariant = null;
-        this.issue = this.original;  // For backward compatibility in computed and template
+        this.issue = this.original; 
       } else {
         const found = this.variants.find(v => String(v.issue_id) === String(variantId));
         this.selectedVariant = found || null;

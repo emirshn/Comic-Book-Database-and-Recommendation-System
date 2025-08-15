@@ -18,17 +18,21 @@ from fastapi.middleware.cors import CORSMiddleware
 environment = os.getenv("ENVIRONMENT", "development")
 frontend_url = os.getenv("FRONTEND_URL")
 
-print("=== DEBUG: Starting FastAPI ===")
-print(f"ENVIRONMENT = {environment}")
-print(f"FRONTEND_URL = {frontend_url}")
-
-if environment == "production":
-    allow_origins = [os.getenv("FRONTEND_URL")]
-else:
-    allow_origins = [ "http://localhost:8080",
+if environment == "production" and frontend_url:
+    allow_origins = [
+        frontend_url,
+        "http://localhost:8080",
         "http://127.0.0.1:8080",
         "http://localhost:8000",
-        "http://127.0.0.1:8000",]
+        "http://127.0.0.1:8000",
+    ]
+else:
+    allow_origins = [
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
 
 environment = os.getenv("ENVIRONMENT", "development")
 frontend_url = os.getenv("FRONTEND_URL")
@@ -340,7 +344,7 @@ async def get_recommended_series(issue_id: int):
         "titleSimilarity": []
     }
 
-    # === 1. Same Creators ===
+    #  1. Same Creators 
     issue_creators_parsed = parse_creators(issue.get("creators", ""))
     issue_story_creators = filter_story_creators(issue_creators_parsed)
     issue_creator_names_set = creators_to_set(issue_story_creators)
@@ -377,12 +381,11 @@ async def get_recommended_series(issue_id: int):
     else:
         print(f"No story creators found for issue_id={issue_id}")
 
-    # === 2. From Summary ===
+    #  2. From Summary 
     print(f"Input summary for issue_id={issue_id} is: {issue['summary'][:100]}")
     if pd.notna(issue.get("summary")) and issue["summary"].strip():
         recommendations["fromSummary"] = get_summary_recommendations(issue["summary"], issue["series_id"])
 
-    # Add cover images for fromSummary recommendations
     for rec in recommendations["fromSummary"]:
         rec["image_url"] = cover_image_for_series(rec["series_id"])
 
@@ -391,7 +394,7 @@ async def get_recommended_series(issue_id: int):
         df_from_summary = df_from_summary.drop_duplicates(subset=["series_id"], keep="first")
         recommendations["fromSummary"] = df_from_summary.to_dict(orient="records")
 
-    # === 3. Title Similarity with fuzzy scoring ===
+    #  3. Title Similarity with fuzzy scoring 
     if pd.notna(issue.get("series_title")) and issue["series_title"].strip():
         issue_title = str(issue["series_title"]).strip()
         

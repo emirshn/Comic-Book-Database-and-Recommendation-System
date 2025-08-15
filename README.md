@@ -31,7 +31,7 @@ This project provides a full-stack solution for comic book fans to explore, filt
 - **Vue.js frontend** for browsing series, issues, creators, and recommendations.  
 - Recommendation system based on **creators, series summaries, and title similarity**.  
 
-I am using Marvel dataset which i fetched myself from Marvel website you can acces it from [here](https://www.kaggle.com/datasets/emirshn/marvel-comics-issues-dataset-including-variants) if you are using Kaggle. Or its already included in repo you can use that.
+This project uses a Marvel dataset that I fetched myself from Marvel website you can access it from [here](https://www.kaggle.com/datasets/emirshn/marvel-comics-issues-dataset-including-variants) if you are using Kaggle. Or its already included in repo you can use that.
 
 You can test app from [this](https://comicbookdatabase.netlify.app/) (I removed summary recommendations and I am using free tools dont overload it pls :/) 
 ---
@@ -60,11 +60,20 @@ You can test app from [this](https://comicbookdatabase.netlify.app/) (I removed 
 ---
 ## Screenshots
 
-<img width="1498" height="659" alt="image" src="https://github.com/user-attachments/assets/05dac529-3fbd-451d-a937-c59a1e882f85" />
-<img width="1459" height="550" alt="image" src="https://github.com/user-attachments/assets/4d11b7a0-b1b1-47c0-9fe5-7fed9e12c595" />
+### Statistics Dashboard
+<img width="1498" height="659" alt="Creator Statistics" src="https://github.com/user-attachments/assets/05dac529-3fbd-451d-a937-c59a1e882f85" />
+<img width="1459" height="550" alt="General Statistics" src="https://github.com/user-attachments/assets/4d11b7a0-b1b1-47c0-9fe5-7fed9e12c595" />
+
+### Issues Page for Series
 <img width="1248" height="759" alt="image" src="https://github.com/user-attachments/assets/757c620f-1357-4a08-b9df-ed47b16b1d1e" />
+
+### Single Issue Page
 <img width="1539" height="697" alt="image" src="https://github.com/user-attachments/assets/deba02e0-3cc9-4978-b083-d67c7a3607bc" />
+
+### More Details for Issue
 <img width="1039" height="760" alt="image" src="https://github.com/user-attachments/assets/75111895-6077-40d0-aec5-f33da3e5fb88" />
+
+### Variant for Issue
 <img width="1055" height="693" alt="image" src="https://github.com/user-attachments/assets/c17cf2ce-a554-42bc-b4e3-25c987be7250" />
 
 
@@ -80,7 +89,11 @@ You can test app from [this](https://comicbookdatabase.netlify.app/) (I removed 
 
 ### Model
 
-In backend folder you will see **embedding.py** which creates necessery files for recommendation to work otherwise you can't use app for recommendation. Just input datasets into it and train with SentenceTransformer. It will create files for you if you don't want to use my trained files or you wanted to add new data to dataset and want to retrain.
+The backend includes `embedding.py`, which generates the files needed for the recommendation system. 
+You can either:
+  - Use the pre-trained files included in the repo, or
+  - Input your own dataset and train embeddings with `SentenceTransformer`.
+
 
 ### Backend
 
@@ -116,13 +129,13 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 npm install
 
 ```
-3. Edit .env file for managing API calls:
+2. Edit .env file for managing API calls:
 URL entered here will be used by frontend for API calls so be careful and put correct one.
 ```bash
 VUE_APP_API_URL=http://127.0.0.1:8000
 
 ```
-5. Run development server:
+3. Run development server:
 ```bash
 npm run dev
 
@@ -135,7 +148,7 @@ npm run dev
 4. Access raw JSON API at http://localhost:8000 if you want to use API.
 
 ## API Endpoints
-I am not sure how many of them working still but I am sure issues and recommended_series is working. (I created others for using it later but in the end i handled them in frontend)
+I am not sure how many of these working still but I am sure issues and recommended_series is working. (I created others for using it later but in the end i handled them in frontend)
 1. GET /issues/ — list issues with optional filters (dataset(original, variant or all), series_title, year, is_variant, limit)
 2. GET /issues/{issue_id} — get a single issue by ID
 3. GET /issues/{original_issue_id}/variants — list variant issues
@@ -146,7 +159,8 @@ I am not sure how many of them working still but I am sure issues and recommende
 8. GET /issues/{issue_id}/recommended_series — get recommended series for a given issue 
 
 ## Future Work
-1. Right now app only uses Marvel dataset because i couldn't find a good source for DC comics. I will try to add them in future.
-2. Also if i can scrape them i want to add characters and their appearence in issues.
-3. More statistics and better visuals for them.
-4. Better optimization.
+- Add DC Comics dataset for broader coverage.
+- Include character appearances and metadata.
+- Enhance statistics dashboards and visualizations.
+- Improve recommendation performance and scalability.
+

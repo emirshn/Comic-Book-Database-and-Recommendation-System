@@ -14,6 +14,7 @@ A web application and API for browsing, searching, and recommending Marvel comic
 
 - [Overview](#overview)  
 - [Features](#features)
+- [Capabilities](#capabilities)
 - [Screenshots](#screenshots)  
 - [Installation](#installation)  
 - [Usage](#usage)  
